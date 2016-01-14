@@ -2,7 +2,7 @@
 
     Jesper Kallehauge, IBME
 
-    Copyright (C) 2008 University of Oxford  */
+    Copyright (C) 2016 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
@@ -34,14 +34,16 @@ void DCEFwdModel::HardcodedInitialDists(MVNDist& prior,
 
     // Set priors
     // Fp or Ktrans whatever you belive
-     prior.means(Fp_index()) = 0.5;
+     prior.means(Fp_index()) = 0.01;
      precisions(Fp_index(),Fp_index()) = 1e-12;
 
-     prior.means(Vp_index()) = 0.2;
+     prior.means(Vp_index()) = 0.01;
      precisions(Vp_index(),Vp_index()) = 1e-12;
 
-
-     if (imageprior) precisions(Fp_index(),Fp_index()) = 10;
+     if (Acq_tech != "none") {
+     precisions(sig0_index(),sig0_index())=1e-12;
+     precisions(T10_index(),T10_index())=10;
+     }
 
 
      if (inferdelay) {
@@ -49,13 +51,6 @@ void DCEFwdModel::HardcodedInitialDists(MVNDist& prior,
        prior.means(delta_index()) = 0;
        precisions(delta_index(),delta_index()) = 0.04; //[0.1]; //<1>;
      }
-
-     // signal magnitude parameter
-//     prior.means(sig0_index()) = 100;
-//     precisions(sig0_index(),sig0_index()) = 1e-6;
-//     if (imageprior) precisions(sig0_index(),sig0_index()) = 1e12;
-
-
 
    
     // Set precsions on priors
@@ -69,6 +64,8 @@ void DCEFwdModel::HardcodedInitialDists(MVNDist& prior,
     posterior.means(Fp_index()) = 0.1;
     precisions(Fp_index(),Fp_index()) = 0.1;
 
+    posterior.means(Vp_index()) = 0.1;
+    precisions(Vp_index(),Vp_index()) = 0.1;
 
     posterior.SetPrecisions(precisions);
     
@@ -90,19 +87,14 @@ void DCEFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) con
    // parameters that are inferred - extract and give sensible names
    float Fp;
    float Vp; //mean of the transit time distribution
-
+   float sig0; //'inital' value of the signal
+   float T10;
+   float FA_radians;
    float delta;
-   //float sig0; //'inital' value of the signal
-
-
-
 
    // extract values from params
    Fp = paramcpy(Fp_index());
    Vp = paramcpy(Vp_index());
-   //cout<<"Fp = "<< Fp<<endl;
-   //cout<<"Vp = "<< Vp<<endl;
-   //cbf = exp(params(cbf_index()));
    if (Vp<1e-8) Vp=1e-8;
    if (Vp>1) Vp=1;
    if (Fp<1e-8) Fp=1e-8;
@@ -113,7 +105,12 @@ void DCEFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) con
    else {
      delta = 0;
    }
-   //sig0 = paramcpy(sig0_index());
+   if (Acq_tech != "none") {
+   sig0 = paramcpy(sig0_index());
+   T10 = paramcpy(T10_index());
+   FA_radians=FA*3.1415926/180;
+   }
+   sig0 = paramcpy(sig0_index());
 
 
      
@@ -139,9 +136,6 @@ void DCEFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) con
    // sensible limits on delta (beyond which it gets silly trying to estimate it)
    if (delta > ntpts/2*delt) {delta = ntpts/2*delt;}
    if (delta < -ntpts/2*delt) {delta = -ntpts/2*delt;}   
-
-
-   //cout << "aif: " << aif.t() << endl;
 
    
 
@@ -191,73 +185,43 @@ void DCEFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) con
    ColumnVector aifnew(aif);
    aifnew = aifshift(aif,delta,hdelt);
 
-   //ColumnVector C_art(aif);
-     //cout<<aifnew<< endl;
-     // populate AIF matrix
+   // populate AIF matrix
      createconvmtx(A,aifnew);
-     //do the convolution (multiplication)
-     //aifnew = hdelt*A;
-
+     
    
    // --- Residue Function ----
    ColumnVector residue(nhtpts);
    residue=0.0;
-
    residue = exp(-(Fp/Vp)* htsamp); // the 1 compartment model.
-   //cout << residue.t() << endl;
-   //cout << htsamp << endl;
-
-   //residue(1) = 1; //always tru - avoid any roundoff errors
-
-   //cout << A << endl;
 
    // do the multiplication
    ColumnVector C;
-   // cout<<A(1,2)<<endl;
    C = Fp*hdelt*A*residue;
    //convert to the DCE signal
 
-   //cout  << "C: " << C.t() << endl;
-  // exit(0);
-   //cout << "sig0: " << sig0 << " r2: " << r2 << " te: " << te << endl;
    
-   //cout<< htsamp.t() << endl;
-
    ColumnVector C_low(ntpts);
    for (int i=1; i<=ntpts; i++) {
      C_low(i) = C((i-1)*upsample+1);
-     //C_low(i) = interp1(htsamp,C,tsamp(i));
-//     if (inferart && !artoption) { //add in arterial contribution
-//       C_low(i) += C_art((i-1)*upsample+1);
-//     }
      } 
+
+    ColumnVector S_low(ntpts);
+   if (Acq_tech == "SPGR") {
+            for (int i=1; i<=ntpts; i++){
+            S_low(i)=sig0*(1-exp(-TR*(1/T10+r1*C_low(i))))/(1-cos(FA_radians)*exp(-TR*(1/T10+r1*C_low(i))));//SPGR
+            }
+       }
+   if (Acq_tech == "SRTF") {
+           S_low=sig0*(1-exp(-Tsat*(1/T10+r1*C_low)))/(1-exp(-Tsat/T10));
+            }
+    if (Acq_tech == "none") {
+   S_low=C_low;
+        }
+
+
     result.ReSize(ntpts);
-    //cout<<C.t()<<endl;
-
-    result=C_low;
-//   ColumnVector sig_art(ntpts);
-//   result.ReSize(ntpts);
-//   for (int i=1; i<=ntpts; i++) {
-     
-
-//     if (inferart && artoption) {
-//       sig_art(i) = C_art((i-1)*upsample+1);
-//       sig_art(i) = exp(-sig_art(i)*te);
-
-//       /*
-//       float cbv = gmu*cbf;
-//       float sumbv = artmag+cbv;
-//       if (sumbv<1e-12) sumbv=1e-12; //catch cases where both volumes are zero
-//       float ratio = artmag/sumbv;
-//       result(i) = sig0*(1 + ratio*(sig_art(i)-1) + (1-ratio)*(exp(-C_low(i)*te)-1) ); //assume relative scaling is based on the relative proportions of blood volume
-//       */
-//       result(i) = sig0*(1 + (sig_art(i)-1) + (exp(-C_low(i)*te)-1) );
-//     }
-//     else {
-//       result(i) = sig0*exp(-C_low(i)*te);
-//     }
-//   }
-
+    result=S_low;
+ 
    for (int i=1; i<=ntpts; i++) {
      if (isnan(result(i)) || isinf(result(i))) {
        exit(0);
@@ -269,21 +233,6 @@ void DCEFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) con
        break;
 	 }
    }
-
-
-   // downsample back to normal time points
-   //cout << estsig.t() << endl;
-   //result.ReSize(ntpts);
-   //result=estsig;
-   /*for (int i=1; i<=ntpts; i++) {
-     result(i) = interp1(htsamp,estsig,tsamp(i));
-     }
-   if ((result-estsig).SumAbsoluteValue()>0.1){
-     cout << result.t() << endl;
-     cout << estsig.t() << endl;
-     }*/
-
-   //cout << result.t()<< endl;
 }
 
 FwdModel* DCEFwdModel::NewInstance()
@@ -299,8 +248,6 @@ void DCEFwdModel::Initialize(ArgsType& args)
     if (scanParams == "cmdline")
     {
       // specify command line parameters here
-      //TR = convertTo<double>(args.Read("TR"));
-      
       delt = convertTo<double>(args.Read("delt"));
 
 
@@ -309,20 +256,32 @@ void DCEFwdModel::Initialize(ArgsType& args)
 
       convmtx = args.ReadWithDefault("convmtx","simple");
       
-      // Read in the arterial signal (this will override an image supplied as supplementary data)
       //ColumnVector artsig;
       string artfile = args.Read("aif");
       if (artfile != "none") {
 	artsig = read_ascii_matrix( artfile );
 
-    //cout<<artsig<<"  \n";
       }
 
+       Acq_tech = args.ReadWithDefault("Acq_tech","none");
+       cout<<Acq_tech<<endl;
+       if (Acq_tech != "none") {
+           if (Acq_tech == "SPGR") {
+                    FA = convertTo<double>(args.Read("FA"));
+                    TR = convertTo<double>(args.Read("TR"));
+                    r1 = convertTo<double>(args.Read("r1"));
+                  }
+                    if (Acq_tech == "SRTF") {
+                             FA = convertTo<double>(args.Read("FA"));
+                             TR = convertTo<double>(args.Read("TR"));
+                             r1 = convertTo<double>(args.Read("r1"));
+                             Tsat    = convertTo<double>(args.Read("Tsat"));
+                           }
+
+       }
 
       aifconc = args.ReadBool("aifconc"); // indicates that the AIF is a CTC not signal curve
-       // cout<<aifconc<<"  \n";
       doard=false;
-     // if (inferart) doard=true;
 
       imageprior = args.ReadBool("imageprior"); //temp way to indicate we have some image priors (very fixed meaning!)             
 
@@ -363,9 +322,10 @@ void DCEFwdModel::NameParams(vector<string>& names) const
   names.push_back("Vp");
   if (inferdelay)
   names.push_back("delay");
-
-  //names.push_back("sig0");
-  
+   if (Acq_tech != "none") {
+    names.push_back("T10");
+    names.push_back("sig0");
+   }
 }
 
 
