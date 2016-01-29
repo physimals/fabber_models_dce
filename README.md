@@ -11,3 +11,30 @@ Currently four models are included:
         model-name= "dce_2CXM"
     
 These models all need an estimate of an input function which must be supplied in the when calling FABBER in the command line
+
+example of command line execution
+
+--output=/home/fsl/Desktop/Data_out/Data
+--data=/home/fsl/Desktop/Data/DCE_signal_intensity.nii
+--mask=/home/fsl/Desktop/Data/mask.nii
+--aifconc
+--aif=/home/fsl/Desktop/Data/parker.dat
+--method=vb
+--model=dce_ETM
+--inferdelay
+--delt=0.035
+--noise=white
+--data-order=singlefile
+--save-model-fit
+--Acq_tech=SRTF
+--Tsat=0.025
+--FA=10
+--TR=0.0029
+--r1=3.6
+--PSP_byname1=T10
+--PSP_byname1_type=I
+--PSP_byname1_image=/home/fsl/Desktop/Data/T1_map.nii
+--PSP_byname2=sig0
+--PSP_byname2_type=I
+--PSP_byname2_image=/home/fsl/Desktop/Data/DCE_signal_baseline.nii
+--mcsteps=2
