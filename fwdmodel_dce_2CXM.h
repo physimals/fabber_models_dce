@@ -1,8 +1,8 @@
-/*  fwdmodel_asl_grase.h - Implements the GRASE model
+/*  fwdmodel_dce_2CXM.h - Implements the 2CXM model
 
-    Michael Chappell, FMRIB Image Analysis Group
+    Jesper Kallehauge, IBME
 
-    Copyright (C) 2007 University of Oxford  */
+    Copyright (C) 2016 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
@@ -27,7 +27,7 @@ public:
                                 
   virtual void NameParams(vector<string>& names) const;     
   virtual int NumParams() const 
-  { return 4 + (inferdelay?1:0); }
+  { return 6 + (inferdelay?1:0); }
 
   virtual ~DCE_2CXM_FwdModel() { return; }
 
@@ -51,25 +51,21 @@ protected:
 
   int delta_index() const { return 4 + (inferdelay?1:0); }
 
-//  int delta_index() const { return 1 + (infermtt?1:0) + (inferlambda?1:0) + (inferdelay?1:0); }
- 
-//  int sig0_index() const { return 2 + (infermtt?1:0) + (inferlambda?1:0) + (inferdelay?1:0); }
+  int T10_index() const { return 5 + (inferdelay?1:0); }
 
-//  int art_index() const { return sig0_index() + (inferart?1:0);}
-
-//  int ret_index() const { return art_index() + (inferart?1:0) + (inferret?1:0); } //NB two arterial parameters
-
-//  int cbv_index() const { return ret_index() + (usecbv?1:0); }
-
-//  int disp_index() const { return cbv_index() + (dispoption?1:0); }
+  int sig0_index() const { return 6 + (inferdelay?1:0); }
 
   //for ARD
   vector<int> ard_index;
 
-    // scan parameters
-  //double te;
-  //double r2;
+  // scan parameters
   double delt;
+  double TR;
+  double FA;
+  double r1;
+  double Tsat;
+  double FA_radians;
+
   ColumnVector artsig;
   ColumnVector s;
 
@@ -78,8 +74,7 @@ protected:
   bool inferdelay;
   bool doard;
 
-  bool imageprior;
-
+  string Acq_tech;
   string convmtx;
   
   private:
