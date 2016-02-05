@@ -102,7 +102,7 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
   
    // parameters that are inferred - extract and give sensible names
    float Fp;
-   float Vp; //mean of the transit time distribution
+   float Vp; 
    float PS;
    float Ve;
    float Tc, kep, E;
@@ -167,9 +167,6 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
    if (delta > ntpts/2*delt) {delta = ntpts/2*delt;}
    if (delta < -ntpts/2*delt) {delta = -ntpts/2*delt;}   
 
-
-   
-
   //upsampled timeseries
   int upsample;
   int nhtpts;
@@ -217,8 +214,8 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
    aifnew = aifshift(aif,delta,hdelt);
 
 
-     // populate AIF matrix
-     createconvmtx(A,aifnew);
+   // populate AIF matrix
+   createconvmtx(A,aifnew);
 
    
    // --- Residue Function ----
@@ -231,7 +228,7 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
 
    for (int i=1; i<=nhtpts; i++){
    if (htsamp(i)<Tc){
-        residue(i) = (1-0.99*exp((htsamp(i)-Tc)/0.01))-0.01*htsamp(i)/Tc;
+        residue(i) = (1-0.99*exp((htsamp(i)-Tc)/0.01))-0.01*htsamp(i)/Tc; // trick to make the curve everywhere differentiable
    }else{
         residue(i) =  E*exp(-(htsamp(i)-Tc)*kep);
    }
@@ -343,7 +340,7 @@ vector<string> DCE_AATH_FwdModel::GetUsage() const
 {
   vector<string> usage;
 
-  usage.push_back( "\nThis is the 2 Compartment Exchange model (1985 Jacquez Compartmental Analysis in Biology and Medicine 2nd edn)\n");
+  usage.push_back( "\nThis is the AATH model (1998 St. Lawrence J Cereb Blood Flow Metab)\n");
   usage.push_back( "It returns  4 parameters :\n");
   usage.push_back( " Fp: the Plasma flow constant\n");
   usage.push_back( " Vp: the plasma volume fraction\n");
