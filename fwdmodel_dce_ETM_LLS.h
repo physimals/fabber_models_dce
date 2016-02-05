@@ -1,8 +1,8 @@
-/*  fwdmodel_asl_grase.h - Implements the GRASE model
+/*  fwdmodel_dce_ETM_LLS.h - Implements the linear extended Tofts model
 
-    Michael Chappell, FMRIB Image Analysis Group
+    Jesper Kallehauge, IBME
 
-    Copyright (C) 2007 University of Oxford  */
+    Copyright (C) 2016 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
