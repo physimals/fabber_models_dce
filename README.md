@@ -9,6 +9,14 @@ Currently four models are included:
         model-name= "dce_CTU"
     4. The 2 Compartment Exchange model.
         model-name= "dce_2CXM"
+    5. The Adiabatic Approximation to the Tissue Homogeniety model.
+        model-name= "dce_AATH"
+    6. The Linear One Compartment model.
+        model-name= "dce_LLS"
+    7. The Linear Compartmental Tissue Uptake model.
+        model-name= "dce_CTU_LLS"
+
+The linear model only work when it is supplied with Concentration curves rather then raw data.
     
 These models all need an estimate of an input function which must be supplied in the when calling FABBER in the command line
 
