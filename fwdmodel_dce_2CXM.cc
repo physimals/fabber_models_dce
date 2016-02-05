@@ -2,7 +2,7 @@
 
     Jesper Kallehauge, IBME
 
-    Copyright (C) 2016 University of Oxford  */
+    Copyright (C) 2008 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
@@ -106,7 +106,7 @@ void DCE_2CXM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
    float PS;
    float Ve;
    float sigma_p, sigma_m;
-   float T, Tc, Te;
+   float T, Tc, Te, V;
    float sig0; //'inital' value of the signal
    float T10;
    float FA_radians;
@@ -122,8 +122,13 @@ void DCE_2CXM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
    //cout<<"Fp = "<< Fp<<endl;
    //cout<<"Vp = "<< Vp<<endl;
    //cbf = exp(params(cbf_index()));
+   V=Vp+Ve;
    if (Vp<1e-8) Vp=1e-8;
    if (Vp>1) Vp=1;
+   if ((Vp+Ve)>=1){
+       Vp=Vp/(V);
+       Ve=Ve/(V);
+   }
    if (Ve<1e-8) Ve=1e-8;
    if (Ve>1) Ve=1;
    if (Fp<1e-8) Fp=1e-8;
@@ -227,11 +232,15 @@ void DCE_2CXM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
    residue=0.0;
    Te=Ve/PS;
    T=(Vp+Ve)/Fp;
-   Tc=Vp/(PS+Fp);
+   Tc=Vp/(Fp);
    sigma_p=((T+Te)+sqrt(MISCMATHS::pow((T+Te),2)-4*Tc*Te))/(2*Tc*Te);
    sigma_m=((T+Te)-sqrt(MISCMATHS::pow((T+Te),2)-4*Tc*Te))/(2*Tc*Te);
 
    residue = ((T*sigma_p-1)*sigma_m*exp(-sigma_m*htsamp)+(1-T*sigma_m)*sigma_p*exp(-sigma_p*htsamp))/(sigma_p-sigma_m);
+//   cout<<residue<<endl;
+   //cout<<Ve<<endl;
+   //cout<<Vp<<endl;
+
 
 
    // do the multiplication
@@ -440,4 +449,3 @@ void DCE_2CXM_FwdModel::createconvmtx( LowerTriangularMatrix& A, const ColumnVec
        }
      }
 }
-
