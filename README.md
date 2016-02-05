@@ -13,10 +13,14 @@ Currently four models are included:
         model-name= "dce_AATH"
     6. The Linear One Compartment model.
         model-name= "dce_LLS"
+    7. The Linear Extended Tofts model.
+        model-name= "dce_ETM_LLS"
     7. The Linear Compartmental Tissue Uptake model.
         model-name= "dce_CTU_LLS"
+    8. The Linear 2 Compartmental Exchange model.
+        model-name= "dce_2CXM_LLS"
 
-The linear model only work when it is supplied with Concentration curves rather then raw data.
+The linear model only work when it is supplied with Concentration curves rather then raw data. And It does not infer any delay between the arrival of the AIF and the tissue curves. A word of caution is that the 2CXM requires both high temporal sampling and good CNR!!
     
 These models all need an estimate of an input function which must be supplied in the when calling FABBER in the command line
 
