@@ -3,21 +3,23 @@ Currently four models are included:
 
     1. The One compartment model often refered to as the standard Tofts model 
         model-name= "dce"
-    2. The Extended Tofts model
+    2. The Patlak model
+        model-name= "dce_Patlak"
+    3. The Extended Tofts model
         model-name= "dce_ETM"
-    3. The Compartmental Tissue Uptake model
+    4. The Compartmental Tissue Uptake model
         model-name= "dce_CTU"
-    4. The 2 Compartment Exchange model.
+    5. The 2 Compartment Exchange model.
         model-name= "dce_2CXM"
-    5. The Adiabatic Approximation to the Tissue Homogeniety model.
+    6. The Adiabatic Approximation to the Tissue Homogeniety model.
         model-name= "dce_AATH"
-    6. The Linear One Compartment model.
+    7. The Linear One Compartment model.
         model-name= "dce_LLS"
-    7. The Linear Extended Tofts model.
+    8. The Linear Extended Tofts model.
         model-name= "dce_ETM_LLS"
-    7. The Linear Compartmental Tissue Uptake model.
+    9. The Linear Compartmental Tissue Uptake model.
         model-name= "dce_CTU_LLS"
-    8. The Linear 2 Compartmental Exchange model.
+    10. The Linear 2 Compartmental Exchange model.
         model-name= "dce_2CXM_LLS"
 
 The linear model only work when it is supplied with Concentration curves rather then raw data. And It does not infer any delay between the arrival of the AIF and the tissue curves. A word of caution is that the 2CXM requires both high temporal sampling and good CNR!!
