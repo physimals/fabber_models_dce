@@ -33,7 +33,7 @@ example of command line execution
     --mask=/home/fsl/Desktop/Data/mask.nii
     --aifconc
     --aif=/home/fsl/Desktop/Data/parker.dat
-    --method=vb       //[nlls, vb, spatialvb] 
+    --method=vb       //[nlls, vb, spatialvb]   NB! spatialvb is recommended!
     --model=dce       // See above
     --convmtx=expConv //[expConv, simple,  voltera]
     --inferdelay
