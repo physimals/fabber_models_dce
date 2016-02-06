@@ -2,7 +2,7 @@
 
     Jesper Kallehauge, IBME
 
-    Copyright (C) 2008 University of Oxford  */
+    Copyright (C) 2016 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
@@ -199,10 +199,6 @@ void DCE_Patlak_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
    ColumnVector C_low(ntpts);
    for (int i=1; i<=ntpts; i++) {
      C_low(i) = C((i-1)*upsample+1);
-     //C_low(i) = interp1(htsamp,C,tsamp(i));
-//     if (inferart && !artoption) { //add in arterial contribution
-//       C_low(i) += C_art((i-1)*upsample+1);
-//     }
      } 
 
     ColumnVector S_low(ntpts);
@@ -221,33 +217,9 @@ void DCE_Patlak_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
    S_low=C_low;
         }
 
-
     result.ReSize(ntpts);
-    //cout<<C.t()<<endl;
-
     result=S_low;
-//   ColumnVector sig_art(ntpts);
-//   result.ReSize(ntpts);
-//   for (int i=1; i<=ntpts; i++) {
-     
 
-//     if (inferart && artoption) {
-//       sig_art(i) = C_art((i-1)*upsample+1);
-//       sig_art(i) = exp(-sig_art(i)*te);
-
-//       /*
-//       float cbv = gmu*cbf;
-//       float sumbv = artmag+cbv;
-//       if (sumbv<1e-12) sumbv=1e-12; //catch cases where both volumes are zero
-//       float ratio = artmag/sumbv;
-//       result(i) = sig0*(1 + ratio*(sig_art(i)-1) + (1-ratio)*(exp(-C_low(i)*te)-1) ); //assume relative scaling is based on the relative proportions of blood volume
-//       */
-//       result(i) = sig0*(1 + (sig_art(i)-1) + (exp(-C_low(i)*te)-1) );
-//     }
-//     else {
-//       result(i) = sig0*exp(-C_low(i)*te);
-//     }
-//   }
 
    for (int i=1; i<=ntpts; i++) {
      if (isnan(result(i)) || isinf(result(i))) {
@@ -260,21 +232,6 @@ void DCE_Patlak_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
        break;
 	 }
    }
-
-
-   // downsample back to normal time points
-   //cout << estsig.t() << endl;
-   //result.ReSize(ntpts);
-   //result=estsig;
-   /*for (int i=1; i<=ntpts; i++) {
-     result(i) = interp1(htsamp,estsig,tsamp(i));
-     }
-   if ((result-estsig).SumAbsoluteValue()>0.1){
-     cout << result.t() << endl;
-     cout << estsig.t() << endl;
-     }*/
-
-   //cout << result.t()<< endl;
 }
 
 FwdModel* DCE_Patlak_FwdModel::NewInstance()
