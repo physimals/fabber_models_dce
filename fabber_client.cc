@@ -8,9 +8,10 @@
 
 #include "fabbercore/fabber_core.h"
 
-// CEST models to be included from library
+// DCE models to be included from library
 #include "fwdmodel_dce.h"
 #include "fwdmodel_dce_LLS.h"
+#include "fwdmodel_dce_Patlak.h"
 #include "fwdmodel_dce_ETM.h"
 #include "fwdmodel_dce_ETM_LLS.h"
 #include "fwdmodel_dce_CTU.h"
@@ -26,6 +27,7 @@ int main(int argc, char** argv) {
   //add the DCE models - these will autoregister at this point
   DCEFwdModel::NewInstance();
   DCE_LLS_FwdModel::NewInstance();
+  DCE_Patlak_FwdModel::NewInstance();
   DCE_ETM_FwdModel::NewInstance();
   DCE_ETM_LLS_FwdModel::NewInstance();
   DCE_CTU_FwdModel::NewInstance();
@@ -38,9 +40,3 @@ int main(int argc, char** argv) {
   return execute(argc, argv);
 
 }
-
-
-
-
-
-
