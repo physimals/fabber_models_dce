@@ -37,15 +37,15 @@ example of command line execution
     --model=dce       // See above
     --convmtx=expConv //[expConv, simple,  voltera]
     --inferdelay
-    --delt=0.035
+    --delt=0.035      // in Minutes
     --noise=white
     --data-order=singlefile
     --save-model-fit
     --Acq_tech=SRTF
-    --Tsat=0.025
-    --FA=10
-    --TR=0.0029
-    --r1=3.6
+    --Tsat=0.025      // in Seconds
+    --FA=10           // in degrees    
+    --TR=0.0029       // in Seconds
+    --r1=3.6          // s^(-1) mM^(-1)
     --PSP_byname1=T10
     --PSP_byname1_type=I
     --PSP_byname1_image=/home/fsl/Desktop/Data/T1_map.nii
@@ -53,4 +53,3 @@ example of command line execution
     --PSP_byname2_type=I
     --PSP_byname2_image=/home/fsl/Desktop/Data/DCE_signal_baseline.nii
     --mcsteps=2
-    
