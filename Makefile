@@ -10,7 +10,7 @@ LIBS = -lutils -lnewimage -lmiscmaths -lprob -lnewmat -lfslio -lniftiio -lznz -l
 XFILES = fabber
 
 # Forward models
-OBJS =  fwdmodel_dce.o fwdmodel_dce_LLS.o fwdmodel_dce_ETM.o fwdmodel_dce_ETM_LLS.o fwdmodel_dce_CTU.o fwdmodel_dce_CTU_LLS.o fwdmodel_dce_2CXM.o fwdmodel_dce_2CXM_LLS.o fwdmodel_dce_AATH.o
+OBJS =  fwdmodel_dce.o fwdmodel_dce_LLS.o fwdmodel_dce_Patlak.o fwdmodel_dce_ETM.o fwdmodel_dce_ETM_LLS.o fwdmodel_dce_CTU.o fwdmodel_dce_CTU_LLS.o fwdmodel_dce_2CXM.o fwdmodel_dce_2CXM_LLS.o fwdmodel_dce_AATH.o
 
 # For debugging:
 OPTFLAGS = -ggdb
