@@ -1,8 +1,8 @@
-/*  fwdmodel_asl_grase.h - Implements the GRASE model
+/*  fwdmodel_dce.h -Implements a convolution based model for DCE analysis
 
-    Michael Chappell, FMRIB Image Analysis Group
+    Jesper Kallehauge, IBME
 
-    Copyright (C) 2007 University of Oxford  */
+    Copyright (C) 2016 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
@@ -36,6 +36,7 @@ public:
 protected: 
 
   ColumnVector aifshift( const ColumnVector& aif, const float delta, const float hdelt ) const;
+  ColumnVector expConv( const ColumnVector& aifnew,  const float T, const ColumnVector htsamp) const;
   void createconvmtx( LowerTriangularMatrix& A, const ColumnVector aifnew ) const;
   
 // Constants
@@ -51,11 +52,12 @@ protected:
  
   int sig0_index() const { return 4 + (inferdelay?1:0); }
 
-
   //for ARD
   vector<int> ard_index;
 
-  // scan parameters
+    // scan parameters
+  //double te;
+  //double r2;
   double delt;
   double TR;
   double FA;
@@ -70,6 +72,8 @@ protected:
 
   bool inferdelay;
   bool doard;
+
+  bool imageprior;
 
   string convmtx;
   string Acq_tech;
