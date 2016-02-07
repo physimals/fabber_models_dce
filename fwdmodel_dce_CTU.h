@@ -2,7 +2,7 @@
 
     Jesper Kallehauge, IBME
 
-    Copyright (C) 2007 University of Oxford  */
+    Copyright (C) 2016 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
