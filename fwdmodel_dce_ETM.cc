@@ -213,7 +213,16 @@ void DCE_ETM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
 
    // do the multiplication
    ColumnVector C;
-   C = Ktrans*hdelt*A*residue+Vp*aifnew;
+   
+   
+    if (convmtx=="expConv")
+     {
+   float T;
+   T=Ve/Ktrans;
+   C=Ktrans*T*expConv(aifnew,T,htsamp)+Vp*aifnew;
+   }else{
+       C = Ktrans*hdelt*A*residue+Vp*aifnew;
+   }
 
    //convert to the DCE signal
      ColumnVector C_low(ntpts);
