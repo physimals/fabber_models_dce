@@ -197,6 +197,7 @@ void DCE_CTU_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
    
    // create the AIF matrix - empty for the time being
    LowerTriangularMatrix A(nhtpts); A=0.0;
+   
 
    // deal with delay parameter - this shifts the aif
    ColumnVector aifnew(aif);
@@ -207,6 +208,7 @@ void DCE_CTU_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
 
    // --- Residue Function ----
    ColumnVector residue(nhtpts);
+   ColumnVector E_vec(nhtpts);
    residue=0.0;
    Tp=Vp/(PS+Fp);
    E=PS/(PS+Fp);
@@ -214,7 +216,16 @@ void DCE_CTU_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
    
    // do the multiplication
    ColumnVector C;
-   C = Fp*hdelt*A*residue;
+   if (convmtx=="expConv")
+     {
+   float E, Tp;
+   T=Vp/Fp;
+   E_vec=E;
+   C=Fp*(1-E)*Tp*expConv(aifnew,Tp,htsamp)+Fp*hdelt*A*E_vec;
+   }else{
+       C = Fp*hdelt*A*residue;
+   }
+
 
    //convert to the DCE signal
    ColumnVector C_low(ntpts);
