@@ -236,8 +236,7 @@ void DCE_2CXM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
    sigma_p=((T+Te)+sqrt(MISCMATHS::pow((T+Te),2)-4*Tc*Te))/(2*Tc*Te);
    sigma_m=((T+Te)-sqrt(MISCMATHS::pow((T+Te),2)-4*Tc*Te))/(2*Tc*Te);
 
-   residue = ((T*sigma_p-1)*sigma_m*exp(-sigma_m*htsamp)+(1-T*sigma_m)*sigma_p*exp(-sigma_p*htsamp))/(sigma_p-sigma_m);
-//   cout<<residue<<endl;
+ //   cout<<residue<<endl;
    //cout<<Ve<<endl;
    //cout<<Vp<<endl;
 
@@ -245,7 +244,15 @@ void DCE_2CXM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
 
    // do the multiplication
    ColumnVector C;
-   C = Fp*hdelt*A*residue;
+   
+   if (convmtx=="expConv")
+     {
+   C=Fp*((T*sigma_p-1)*expConv(aifnew,1/sigma_m,htsamp)+(1-T*sigma_m)*expConv(aifnew,1/sigma_p,htsamp))/(sigma_p-sigma_m);
+   }else{
+       residue = ((T*sigma_p-1)*sigma_m*exp(-sigma_m*htsamp)+(1-T*sigma_m)*sigma_p*exp(-sigma_p*htsamp))/(sigma_p-sigma_m);
+       C = Fp*hdelt*A*residue;
+   }
+
 
    //convert to the DCE signal
    ColumnVector C_low(ntpts);
