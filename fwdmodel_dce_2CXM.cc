@@ -2,7 +2,7 @@
 
     Jesper Kallehauge, IBME
 
-    Copyright (C) 2008 University of Oxford  */
+    Copyright (C) 2016 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
@@ -405,6 +405,35 @@ ColumnVector DCE_2CXM_FwdModel::aifshift( const ColumnVector& aif, const float d
      }
    }
    return aifnew;
+}
+
+ColumnVector DCE_2CXM_FwdModel::expConv( const ColumnVector& aifnew, const float T, const ColumnVector htsamp) const
+{
+    int nhtpts = aifnew.Nrows();
+    ColumnVector f(nhtpts);
+    if (T==0.0){
+        f=aifnew;
+    }else{
+
+        ColumnVector E(nhtpts-1);
+        ColumnVector E0(nhtpts-1);
+        ColumnVector E1(nhtpts-1);
+        ColumnVector deltime(nhtpts-1);
+        ColumnVector deltaif(nhtpts-1);
+
+        for (int i=2; i<=nhtpts; i++) {
+            deltaif(i-1)=T*(aifnew(i)-aifnew(i-1))/(htsamp(i)-htsamp(i-1));
+            deltime(i-1)=(htsamp(i)-htsamp(i-1))/T;
+        }
+        E=exp(-deltime);
+        E0=1.0-E;
+        E1=deltime-E0;
+        f(1)=0.0;
+        for (int i=2; i<=nhtpts; i++) {
+        f(i)=E(i-1)*f(i-1)+(aifnew(i-1)*E0(i-1)+deltaif(i-1)*E1(i-1));
+        }
+    }
+    return f;
 }
 
 void DCE_2CXM_FwdModel::createconvmtx( LowerTriangularMatrix& A, const ColumnVector aifnew ) const
