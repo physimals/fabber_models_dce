@@ -1,6 +1,6 @@
-/*  fwdmodel_asl_grase.h - Implements the GRASE model
+/*  fwdmodel_dce_CTU.h - Implements the Compartmental Tissue Uptake model
 
-    Michael Chappell, FMRIB Image Analysis Group
+    Jesper Kallehauge, IBME
 
     Copyright (C) 2007 University of Oxford  */
 
@@ -36,6 +36,7 @@ public:
 protected: 
 
   ColumnVector aifshift( const ColumnVector& aif, const float delta, const float hdelt ) const;
+  ColumnVector expConv( const ColumnVector& aifnew,  const float T, const ColumnVector htsamp) const;
   void createconvmtx( LowerTriangularMatrix& A, const ColumnVector aifnew ) const;
   
 // Constants
