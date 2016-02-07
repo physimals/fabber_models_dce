@@ -373,7 +373,7 @@ ColumnVector DCE_ETM_FwdModel::aifshift( const ColumnVector& aif, const float de
    return aifnew;
 }
 
-ColumnVector DCEFwdModel::expConv( const ColumnVector& aifnew, const float T, const ColumnVector htsamp) const
+ColumnVector DCE_ETM_FwdModel::expConv( const ColumnVector& aifnew, const float T, const ColumnVector htsamp) const
 {
     int nhtpts = aifnew.Nrows();
     ColumnVector f(nhtpts);
