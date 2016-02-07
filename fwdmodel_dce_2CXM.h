@@ -36,6 +36,7 @@ public:
 protected: 
 
   ColumnVector aifshift( const ColumnVector& aif, const float delta, const float hdelt ) const;
+  ColumnVector expConv( const ColumnVector& aifnew,  const float T, const ColumnVector htsamp) const;
   void createconvmtx( LowerTriangularMatrix& A, const ColumnVector aifnew ) const;
   
 // Constants
