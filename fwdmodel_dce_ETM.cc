@@ -58,7 +58,7 @@ void DCE_ETM_FwdModel::HardcodedInitialDists(MVNDist& prior,
 
     // Set precsions on priors
     prior.SetPrecisions(precisions);
-    
+
     // Set initial posterior
     posterior = prior;
 
@@ -75,10 +75,10 @@ void DCE_ETM_FwdModel::HardcodedInitialDists(MVNDist& prior,
 
 
     posterior.SetPrecisions(precisions);
-    
-}    
-    
-    
+
+}
+
+
 
 void DCE_ETM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) const
 {
@@ -90,7 +90,7 @@ void DCE_ETM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
     for (int i=1;i<=NumParams();i++) {
       if (params(i)<0) { paramcpy(i) = 0; }
       }
-  
+
    // parameters that are inferred - extract and give sensible names
    float Ktrans;
    float Vp; //mean of the transit time distribution
@@ -125,13 +125,16 @@ void DCE_ETM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
      delta = 0;
    }
    if (Acq_tech != "none") {
+       if (Acq_tech == "CT") {
+   sig0 = paramcpy(sig0_index());
+       }else{
    sig0 = paramcpy(sig0_index());
    T10 = paramcpy(T10_index());
    FA_radians=FA*3.1415926/180;
-   }
-   sig0 = paramcpy(sig0_index());
+       }
+    }
 
-     
+
 
    ColumnVector artsighere; // the arterial signal to use for the analysis
    if (artsig.Nrows()>0) {
@@ -153,7 +156,7 @@ void DCE_ETM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
 
    // sensible limits on delta (beyond which it gets silly trying to estimate it)
    if (delta > ntpts/2*delt) {delta = ntpts/2*delt;}
-   if (delta < -ntpts/2*delt) {delta = -ntpts/2*delt;}   
+   if (delta < -ntpts/2*delt) {delta = -ntpts/2*delt;}
 
 
 
@@ -167,25 +170,25 @@ void DCE_ETM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
       // Create vector of sampled times
       ColumnVector tsamp(ntpts);
       for (int i=1; i<=ntpts; i++) {
-	tsamp(i) = (i-1)*delt;
+    tsamp(i) = (i-1)*delt;
       }
 
       upsample=1;
       nhtpts=(ntpts-1)*upsample+1;
-      htsamp.ReSize(nhtpts); 
+      htsamp.ReSize(nhtpts);
       htsamp(1) = tsamp(1);
       hdelt = delt/upsample;
       for (int i=2; i<=nhtpts-1; i++) {
-	htsamp(i) = htsamp(i-1)+hdelt;
+    htsamp(i) = htsamp(i-1)+hdelt;
       }
       htsamp(nhtpts)=tsamp(ntpts);
 
    // calculate the arterial input function (from upsampled artsig)
    ColumnVector aif_low(ntpts);
    aif_low=artsighere;
-   
+
    // upsample the signal
-   ColumnVector aif; 
+   ColumnVector aif;
    aif.ReSize(nhtpts);
    aif(1) = aif_low(1);
    int j=0; int ii=0;
@@ -195,7 +198,7 @@ void DCE_ETM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
      aif(i) = aif_low(j) + ii/upsample*(aif_low(j+1) - aif_low(j));
    }
    aif(nhtpts) = aif_low(ntpts);
-   
+
    // create the AIF matrix - empty for the time being
    LowerTriangularMatrix A(nhtpts); A=0.0;
 
@@ -205,7 +208,7 @@ void DCE_ETM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
 
      // populate AIF matrix
      createconvmtx(A,aifnew);
-   
+
    // --- Residue Function ----
    ColumnVector residue(nhtpts);
    residue=0.0;
@@ -213,8 +216,8 @@ void DCE_ETM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
 
    // do the multiplication
    ColumnVector C;
-   
-   
+
+
     if (convmtx=="expConv")
      {
    float T;
@@ -239,6 +242,9 @@ void DCE_ETM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
      if (Acq_tech == "SRTF") {
              S_low=sig0*(1-exp(-Tsat*(1/T10+r1*C_low)))/(1-exp(-Tsat/T10));
               }
+     if (Acq_tech == "CT") {
+         S_low=C_low+sig0;
+     }
       if (Acq_tech == "none") {
      S_low=C_low;
           }
@@ -253,9 +259,9 @@ void DCE_ETM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result
        LOG << "result: " << result.t() << endl;
        LOG << "params: " << params.t() << endl;
 
-       result=0.0; 
+       result=0.0;
        break;
-	 }
+     }
    }
 }
 
@@ -268,11 +274,11 @@ void DCE_ETM_FwdModel::Initialize(ArgsType& args)
 {
   Tracer_Plus tr("DCE_ETM_FwdModel::DCE_ETM_FwdModel");
     string scanParams = args.ReadWithDefault("scan-params","cmdline");
-    
+
     if (scanParams == "cmdline")
     {
       // specify command line parameters here
-      
+
       delt = convertTo<double>(args.Read("delt"));
 
 
@@ -280,7 +286,7 @@ void DCE_ETM_FwdModel::Initialize(ArgsType& args)
       inferdelay = args.ReadBool("inferdelay");
 
       convmtx = args.ReadWithDefault("convmtx","simple");
-      
+
       // Read in the arterial signal (this will override an image supplied as supplementary data)
       //ColumnVector artsig;
       string artfile = args.Read("aif");
@@ -313,13 +319,13 @@ void DCE_ETM_FwdModel::Initialize(ArgsType& args)
 
       // add information about the parameters to the log
       /* do logging here*/
-   
+
     }
 
     else
-        throw invalid_argument("Only --scan-params=cmdline is accepted at the moment");    
-    
- 
+        throw invalid_argument("Only --scan-params=cmdline is accepted at the moment");
+
+
 }
 
 vector<string> DCE_ETM_FwdModel::GetUsage() const
@@ -329,6 +335,7 @@ vector<string> DCE_ETM_FwdModel::GetUsage() const
   usage.push_back( "\nThis is the extended Tofts model (JMRI 1999;10:223-232)\n");
   usage.push_back( "It returns  3 parameters :\n");
   usage.push_back( " Ktrans: the forward transfer constant\n");
+  usage.push_back( " Ve: the extravascular extracellular volume fraction\n");
   usage.push_back( " Vp: the plasma volume fraction\n");
 
 
@@ -338,23 +345,27 @@ vector<string> DCE_ETM_FwdModel::GetUsage() const
 void DCE_ETM_FwdModel::DumpParameters(const ColumnVector& vec,
                                     const string& indent) const
 {
-    
+
 }
 
 void DCE_ETM_FwdModel::NameParams(vector<string>& names) const
 {
   names.clear();
-  
+
   names.push_back("Ktrans");
   names.push_back("Ve");
   names.push_back("Vp");
   if (inferdelay)
   names.push_back("delay");
   if (Acq_tech != "none") {
-    names.push_back("T10");
-    names.push_back("sig0");
-   }
-  
+      if (Acq_tech == "CT") {
+          names.push_back("sig0");
+      }else{
+   names.push_back("T10");
+   names.push_back("sig0");
+      }
+  }
+
 }
 
 
@@ -365,7 +376,7 @@ ColumnVector DCE_ETM_FwdModel::aifshift( const ColumnVector& aif, const float de
   // NB Makes assumptions where extrapolation is called for.
    int nshift = floor(delta/hdelt); // number of time points of shift associated with delta
    float minorshift = delta - nshift*hdelt; // shift within the sampled time points (this is always a 'forward' shift)
-      
+
    ColumnVector aifnew(aif);
    int index;
    int nhtpts = aif.Nrows();
@@ -421,7 +432,7 @@ void DCE_ETM_FwdModel::createconvmtx( LowerTriangularMatrix& A, const ColumnVect
        // Simple convolution matrix
        for (int i=1; i<=nhtpts; i++) {//
      for (int j=1; j <= i; j++) {
-	   A(i,j) = aifnew(i-j+1); //note we are using the local aifnew here! (i.e. it has been suitably time shifted)
+       A(i,j) = aifnew(i-j+1); //note we are using the local aifnew here! (i.e. it has been suitably time shifted)
 
      }
        }
@@ -438,18 +449,18 @@ void DCE_ETM_FwdModel::createconvmtx( LowerTriangularMatrix& A, const ColumnVect
        int x, y, z;
        //voltera convolution matrix (as defined by Sourbron 2007) - assume zeros outside aif range
        for (int i=1; i<=nhtpts; i++) {
-	 for (int j=1; j <= i; j++) {
-	   //cout << i << "  " << j << endl;
-	   x = i+1;y=j+1; z = i-j+1;
-	   if (j==1) { A(i,j) =(2*aifextend(x) + aifextend(x-1))/6; }
-	   else if (j==i) { A(i,j) = (2*aifextend(2) + aifextend(3))/6; }
-	   else { 
-	     A(i,j) =  (4*aifextend(z) + aifextend(z-1) + aifextend(z+1))/6; 
-	     //cout << x << "  " << y << "  " << z << "  " << ( 4*aifextend(z) + aifextend(z-1) + aifextend(z+1) )/6 << "  " << 1/6*(4*aifextend(z) + aifextend(z-1) + aifextend(z+1)) << endl;
-	     // cout << aifextend(z) << "  " << aifextend(z-1) << "  " << aifextend(z+1) << endl;
-	   }
-	   //cout << i << "  " << j << "  " << aifextend(z) << "  " << A(i,j) << endl<<endl;
-	 }
+     for (int j=1; j <= i; j++) {
+       //cout << i << "  " << j << endl;
+       x = i+1;y=j+1; z = i-j+1;
+       if (j==1) { A(i,j) =(2*aifextend(x) + aifextend(x-1))/6; }
+       else if (j==i) { A(i,j) = (2*aifextend(2) + aifextend(3))/6; }
+       else {
+         A(i,j) =  (4*aifextend(z) + aifextend(z-1) + aifextend(z+1))/6;
+         //cout << x << "  " << y << "  " << z << "  " << ( 4*aifextend(z) + aifextend(z-1) + aifextend(z+1) )/6 << "  " << 1/6*(4*aifextend(z) + aifextend(z-1) + aifextend(z+1)) << endl;
+         // cout << aifextend(z) << "  " << aifextend(z-1) << "  " << aifextend(z+1) << endl;
+       }
+       //cout << i << "  " << j << "  " << aifextend(z) << "  " << A(i,j) << endl<<endl;
+     }
        }
      }
 }
