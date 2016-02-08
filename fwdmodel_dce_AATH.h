@@ -51,9 +51,11 @@ protected:
 
   int delta_index() const { return 4 + (inferdelay?1:0); }
 
-  int T10_index() const { return 5 + (inferdelay?1:0); }
+  int sig0_index() const { return 5 + (inferdelay?1:0); }
 
-  int sig0_index() const { return 6 + (inferdelay?1:0); }
+  int T10_index() const { return 6 + (inferdelay?1:0); }
+
+
 
   //for ARD
   vector<int> ard_index;
@@ -81,4 +83,4 @@ protected:
   /** Auto-register with forward model factory. */
   static FactoryRegistration<FwdModelFactory, DCE_AATH_FwdModel> registration;
 
-};
+};  
