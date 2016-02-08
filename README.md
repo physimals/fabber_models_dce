@@ -43,7 +43,7 @@ Mandatory:
     
 Optional:    
 
-    --convmtx=expConv //[expConv, simple,  voltera]
+    --convmtx=expConv //[expConv, simple,  voltera] (expConv works only for models: [dce, dce_ETM, dce_CTU, dce_2CXM])
     --inferdelay
     --save-model-fit
     --Acq_tech=SRTF   //[none, SPGR, SRTF] 
