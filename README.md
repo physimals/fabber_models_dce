@@ -28,28 +28,31 @@ These models all need an estimate of an input function which must be supplied in
 
 example of command line execution
 
+Mandatory:
     --output=/home/fsl/Desktop/Data_out/Data
     --data=/home/fsl/Desktop/Data/DCE_signal_intensity.nii
     --mask=/home/fsl/Desktop/Data/mask.nii
-    --aifconc
-    --aif=/home/fsl/Desktop/Data/parker.dat
+    --aif=/home/fsl/Desktop/Data/parker.dat  //in mM for MR data
+    --aifconc  // this just makes sure you consider the above mM concentration of the AIF 
     --method=vb       //[nlls, vb, spatialvb]   NB! spatialvb is recommended!
     --model=dce       // See above
-    --convmtx=expConv //[expConv, simple,  voltera]
-    --inferdelay
     --delt=0.035      // in Minutes
     --noise=white
     --data-order=singlefile
+    
+Optional:    
+    --convmtx=expConv //[expConv, simple,  voltera]
+    --inferdelay
     --save-model-fit
-    --Acq_tech=SRTF
-    --Tsat=0.025      // in Seconds
-    --FA=10           // in degrees    
-    --TR=0.0029       // in Seconds
-    --r1=3.6          // s^(-1) mM^(-1)
-    --PSP_byname1=T10
-    --PSP_byname1_type=I
-    --PSP_byname1_image=/home/fsl/Desktop/Data/T1_map.nii
-    --PSP_byname2=sig0
-    --PSP_byname2_type=I
-    --PSP_byname2_image=/home/fsl/Desktop/Data/DCE_signal_baseline.nii
-    --mcsteps=2
+    --Acq_tech=SRTF   //[none, SPGR, SRTF] 
+    --Tsat=0.025      // in Seconds (only for SRTF) 
+    --FA=10           // in degrees (For both SRTF and SPGR)   
+    --TR=0.0029       // in Seconds (For both SRTF and SPGR)
+    --r1=3.6          // s^(-1) mM^(-1) (For both SRTF and SPGR)
+    --PSP_byname1=T10 // Spatial prior variable
+    --PSP_byname1_type=I // Spatial prior data type
+    --PSP_byname1_image=/home/fsl/Desktop/Data/T1_map.nii // Spatial prior data location
+    --PSP_byname2=sig0  // Spatial prior variable
+    --PSP_byname2_type=I // Spatial prior data type
+    --PSP_byname2_image=/home/fsl/Desktop/Data/DCE_signal_baseline.nii  // Spatial prior data location
+    --mcsteps=2     //number of motion correction step
