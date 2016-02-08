@@ -2,7 +2,7 @@
 
     Jesper Kallehauge, IBME
 
-    Copyright (C) 2016 University of Oxford  */
+    Copyright (C) 2008 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
@@ -102,7 +102,7 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
   
    // parameters that are inferred - extract and give sensible names
    float Fp;
-   float Vp; 
+   float Vp; //mean of the transit time distribution
    float PS;
    float Ve;
    float Tc, kep, E;
@@ -136,10 +136,14 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
    }
 
    if (Acq_tech != "none") {
+       if (Acq_tech == "CT") {
+   sig0 = paramcpy(sig0_index());
+       }else{
    sig0 = paramcpy(sig0_index());
    T10 = paramcpy(T10_index());
    FA_radians=FA*3.1415926/180;
-   }
+       }
+    }
 
 
 
@@ -166,6 +170,9 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
    // sensible limits on delta (beyond which it gets silly trying to estimate it)
    if (delta > ntpts/2*delt) {delta = ntpts/2*delt;}
    if (delta < -ntpts/2*delt) {delta = -ntpts/2*delt;}   
+
+
+   
 
   //upsampled timeseries
   int upsample;
@@ -214,8 +221,8 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
    aifnew = aifshift(aif,delta,hdelt);
 
 
-   // populate AIF matrix
-   createconvmtx(A,aifnew);
+     // populate AIF matrix
+     createconvmtx(A,aifnew);
 
    
    // --- Residue Function ----
@@ -228,7 +235,7 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
 
    for (int i=1; i<=nhtpts; i++){
    if (htsamp(i)<Tc){
-        residue(i) = (1-0.99*exp((htsamp(i)-Tc)/0.01))-0.01*htsamp(i)/Tc; // trick to make the curve everywhere differentiable
+        residue(i) = (1-0.99*exp((htsamp(i)-Tc)/0.01))-0.01*htsamp(i)/Tc;
    }else{
         residue(i) =  E*exp(-(htsamp(i)-Tc)*kep);
    }
@@ -253,6 +260,9 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
    if (Acq_tech == "SRTF") {
            S_low=sig0*(1-exp(-Tsat*(1/T10+r1*C_low)))/(1-exp(-Tsat/T10));
             }
+   if (Acq_tech == "CT") {
+       S_low=C_low+sig0;
+   }
     if (Acq_tech == "none") {
    S_low=C_low;
         }
@@ -340,7 +350,7 @@ vector<string> DCE_AATH_FwdModel::GetUsage() const
 {
   vector<string> usage;
 
-  usage.push_back( "\nThis is the AATH model (1998 St. Lawrence J Cereb Blood Flow Metab)\n");
+  usage.push_back( "\nThis is the Adiabatic approximation to the Tissue Homogeniety model)\n");
   usage.push_back( "It returns  4 parameters :\n");
   usage.push_back( " Fp: the Plasma flow constant\n");
   usage.push_back( " Vp: the plasma volume fraction\n");
@@ -367,9 +377,13 @@ void DCE_AATH_FwdModel::NameParams(vector<string>& names) const
   if (inferdelay)
   names.push_back("delay");
   if (Acq_tech != "none") {
-    names.push_back("T10");
-    names.push_back("sig0");
-   }
+      if (Acq_tech == "CT") {
+          names.push_back("sig0");
+      }else{
+   names.push_back("T10");
+   names.push_back("sig0");
+      }
+  }
   
 }
 
