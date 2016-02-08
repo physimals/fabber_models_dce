@@ -29,6 +29,7 @@ These models all need an estimate of an input function which must be supplied in
 example of command line execution
 
 Mandatory:
+
     --output=/home/fsl/Desktop/Data_out/Data
     --data=/home/fsl/Desktop/Data/DCE_signal_intensity.nii
     --mask=/home/fsl/Desktop/Data/mask.nii
@@ -41,6 +42,7 @@ Mandatory:
     --data-order=singlefile
     
 Optional:    
+
     --convmtx=expConv //[expConv, simple,  voltera]
     --inferdelay
     --save-model-fit
