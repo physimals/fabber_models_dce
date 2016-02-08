@@ -46,7 +46,7 @@ Optional:
     --convmtx=expConv //[expConv, simple,  voltera] (expConv works only for models: [dce, dce_ETM, dce_CTU, dce_2CXM])
     --inferdelay
     --save-model-fit
-    --Acq_tech=SRTF   //[none, SPGR, SRTF] 
+    --Acq_tech=SRTF   //[none, SPGR, SRTF, CT]  //CT is only implemented for [dce, dce_ETM, dce_CTU, dce_2CXM, dce_AATH]
     --Tsat=0.025      // in Seconds (only for SRTF) 
     --FA=10           // in degrees (For both SRTF and SPGR)   
     --TR=0.0029       // in Seconds (For both SRTF and SPGR)
