@@ -2,7 +2,7 @@
 
     Jesper Kallehauge, IBME
 
-    Copyright (C) 2016 University of Oxford  */
+    Copyright (C) 2008 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
@@ -106,10 +106,14 @@ void DCEFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) con
      delta = 0;
    }
    if (Acq_tech != "none") {
+       if (Acq_tech == "CT") {
+   sig0 = paramcpy(sig0_index());
+       }else{
    sig0 = paramcpy(sig0_index());
    T10 = paramcpy(T10_index());
    FA_radians=FA*3.1415926/180;
-   }
+       }
+    }
 
      
 
@@ -246,6 +250,9 @@ void DCEFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) con
            // S_low(i)=sig0*(1-exp(-Tsat*(1/T10+r1*C_low(i))))*(1-exp(-TR*(1/T10+r1*C_low(i))))/(1-cos(FA_radians)*exp(-TR*(1/T10+r1*C_low(i))));//SRTF
            //      }
             }
+   if (Acq_tech == "CT") {
+       S_low=C_low+sig0;
+   }
     if (Acq_tech == "none") {
    S_low=C_low;
         }
@@ -399,8 +406,12 @@ void DCEFwdModel::NameParams(vector<string>& names) const
   if (inferdelay)
   names.push_back("delay");
    if (Acq_tech != "none") {
+       if (Acq_tech == "CT") {
+           names.push_back("sig0");
+       }else{
     names.push_back("T10");
     names.push_back("sig0");
+       }
    }
 }
 
