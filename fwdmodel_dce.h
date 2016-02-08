@@ -48,9 +48,19 @@ protected:
 
   int delta_index() const { return 2 + (inferdelay?1:0); }
 
-  int T10_index() const { return 3 + (inferdelay?1:0); }
+  int sig0_index() const { return 3 + (inferdelay?1:0); }
+
+  int T10_index() const { return 4 + (inferdelay?1:0); }
  
-  int sig0_index() const { return 4 + (inferdelay?1:0); }
+
+
+//  int art_index() const { return sig0_index() + (inferart?1:0);}
+
+//  int ret_index() const { return art_index() + (inferart?1:0) + (inferret?1:0); } //NB two arterial parameters
+
+//  int cbv_index() const { return ret_index() + (usecbv?1:0); }
+
+//  int disp_index() const { return cbv_index() + (dispoption?1:0); }
 
   //for ARD
   vector<int> ard_index;
