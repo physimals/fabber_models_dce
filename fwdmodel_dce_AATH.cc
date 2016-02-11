@@ -380,8 +380,8 @@ void DCE_AATH_FwdModel::NameParams(vector<string>& names) const
       if (Acq_tech == "CT") {
           names.push_back("sig0");
       }else{
-   names.push_back("T10");
    names.push_back("sig0");
+   names.push_back("T10");
       }
   }
   
