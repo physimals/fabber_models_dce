@@ -151,7 +151,7 @@ void DCE_ETM_LLS_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& re
    float deltpeak;
    artsighere.MaximumAbsoluteValue1(aifpeak);
    deltpeak=(10.0/60.0)/delt; //10 seconds earlier than tmax is the end of the baseline
-   baseline=aifpeak-round(deltpeak);
+   baseline=aifpeak-ceil(deltpeak);
 
 
    if (Acq_tech != "none") {
