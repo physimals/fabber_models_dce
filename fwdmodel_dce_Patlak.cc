@@ -13,12 +13,21 @@
 #include <stdexcept>
 #include "newimage/newimageall.h"
 using namespace NEWIMAGE;
-#include "fabbercore/easylog.h"
+#include "fabber_core/easylog.h"
 #include "miscmaths/miscprob.h"
+
+using namespace NEWMAT;
+#include "utils/tracer_plus.h"
+using Utilities::Tracer_Plus;
 
 FactoryRegistration<FwdModelFactory, DCE_Patlak_FwdModel>
   DCE_Patlak_FwdModel::registration("dce_Patlak");
 
+std::string DCE_Patlak_FwdModel::GetDescription() const
+{
+	return "The Patlak model";
+}
+ 
 string DCE_Patlak_FwdModel::ModelVersion() const
 {
   return "$Id: fwdmodel_dce_Patlak.cc,v 1.11 2016/01/06 15:20:47 Kallehauge Exp $";
@@ -34,22 +43,22 @@ void DCE_Patlak_FwdModel::HardcodedInitialDists(MVNDist& prior,
 
     // Set priors
     // Fp or Ktrans whatever you belive
-     prior.means(Ktrans_index()) = 0.01;
-     precisions(Ktrans_index(),Ktrans_index()) = 1e-12;
+     prior.means(ktrans_idx) = 0.01;
+     precisions(ktrans_idx,ktrans_idx) = 1e-12;
 
-     prior.means(Vp_index()) = 0.01;
-     precisions(Vp_index(),Vp_index()) = 1e-12;
+     prior.means(vp_idx) = 0.01;
+     precisions(vp_idx,vp_idx) = 1e-12;
 
      if (Acq_tech != "none") {
-     precisions(sig0_index(),sig0_index())=1e-12;
-     precisions(T10_index(),T10_index())=10;
+     precisions(sig0_idx,sig0_idx)=1e-12;
+     precisions(t10_idx,t10_idx)=10;
      }
 
 
      if (inferdelay) {
        // delay parameter
-       prior.means(delta_index()) = 0;
-       precisions(delta_index(),delta_index()) = 0.04; //[0.1]; //<1>;
+       prior.means(delta_idx) = 0;
+       precisions(delta_idx,delta_idx) = 0.04; //[0.1]; //<1>;
      }
 
    
@@ -61,18 +70,16 @@ void DCE_Patlak_FwdModel::HardcodedInitialDists(MVNDist& prior,
 
     // For parameters with uniformative prior chosoe more sensible inital posterior
     // Tissue perfusion
-    posterior.means(Ktrans_index()) = 0.1;
-    precisions(Ktrans_index(),Ktrans_index()) = 0.1;
+    posterior.means(ktrans_idx) = 0.1;
+    precisions(ktrans_idx,ktrans_idx) = 0.1;
 
-    posterior.means(Vp_index()) = 0.1;
-    precisions(Vp_index(),Vp_index()) = 0.1;
+    posterior.means(vp_idx) = 0.1;
+    precisions(vp_idx,vp_idx) = 0.1;
 
     posterior.SetPrecisions(precisions);
     
 }    
     
-    
-
 void DCE_Patlak_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) const
 {
   Tracer_Plus tr("DCE_Patlak_FwdModel::Evaluate");
@@ -93,21 +100,21 @@ void DCE_Patlak_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& res
    float FA_radians;
 
    // extract values from params
-   Ktrans = paramcpy(Ktrans_index());
-   Vp = paramcpy(Vp_index());
+   Ktrans = paramcpy(ktrans_idx);
+   Vp = paramcpy(vp_idx);
    if (Vp<1e-8) Vp=1e-8;
    if (Vp>1) Vp=1;
    if (Ktrans<1e-8) Ktrans=1e-8;
 
    if (inferdelay) {
-   delta = params(delta_index()); // NOTE: delta is allowed to be negative
+   delta = params(delta_idx); // NOTE: delta is allowed to be negative
    }
    else {
      delta = 0;
    }
    if (Acq_tech != "none") {
-   sig0 = paramcpy(sig0_index());
-   T10 = paramcpy(T10_index());
+   sig0 = paramcpy(sig0_idx);
+   T10 = paramcpy(t10_idx);
    FA_radians=FA*3.1415926/180;
    }
 
@@ -239,67 +246,6 @@ FwdModel* DCE_Patlak_FwdModel::NewInstance()
   return new DCE_Patlak_FwdModel();
 }
 
-void DCE_Patlak_FwdModel::Initialize(ArgsType& args)
-{
-  Tracer_Plus tr("DCE_Patlak_FwdModel::DCE_Patlak_FwdModel");
-    string scanParams = args.ReadWithDefault("scan-params","cmdline");
-    
-    if (scanParams == "cmdline")
-    {
-      // specify command line parameters here
-      delt = convertTo<double>(args.Read("delt"));
-
-
-      // specify options of the model
-      inferdelay = args.ReadBool("inferdelay");
-
-      convmtx = args.ReadWithDefault("convmtx","simple");
-      
-      // Read in the arterial signal (this will override an image supplied as supplementary data)
-      //ColumnVector artsig;
-      string artfile = args.Read("aif");
-      if (artfile != "none") {
-	artsig = read_ascii_matrix( artfile );
-
-    //cout<<data<<"  \n";
-    //exit(0);
-      }
-
-       Acq_tech = args.ReadWithDefault("Acq_tech","none");
-       cout<<Acq_tech<<endl;
-       if (Acq_tech != "none") {
-           if (Acq_tech == "SPGR") {
-                    FA = convertTo<double>(args.Read("FA"));
-                    TR = convertTo<double>(args.Read("TR"));
-                    r1 = convertTo<double>(args.Read("r1"));
-                  }
-                    if (Acq_tech == "SRTF") {
-                             FA = convertTo<double>(args.Read("FA"));
-                             TR = convertTo<double>(args.Read("TR"));
-                             r1 = convertTo<double>(args.Read("r1"));
-                             Tsat    = convertTo<double>(args.Read("Tsat"));
-                           }
-
-       }
-
-      aifconc = args.ReadBool("aifconc"); // indicates that the AIF is a CTC not signal curve
-        cout<<aifconc<<"  \n";
-      doard=false;
-     // if (inferart) doard=true;
-
-      imageprior = args.ReadBool("imageprior"); //temp way to indicate we have some image priors (very fixed meaning!)             
-
-      // add information about the parameters to the log
-      /* do logging here*/
-   
-    }
-
-    else
-        throw invalid_argument("Only --scan-params=cmdline is accepted at the moment");    
-    
- 
-}
-
 vector<string> DCE_Patlak_FwdModel::GetUsage() const
 {
   vector<string> usage;
@@ -310,12 +256,6 @@ vector<string> DCE_Patlak_FwdModel::GetUsage() const
   usage.push_back( " Vp: the plasma volume fraction\n");
 
   return usage;
-}
-
-void DCE_Patlak_FwdModel::DumpParameters(const ColumnVector& vec,
-                                    const string& indent) const
-{
-    
 }
 
 void DCE_Patlak_FwdModel::NameParams(vector<string>& names) const
@@ -337,70 +277,3 @@ void DCE_Patlak_FwdModel::NameParams(vector<string>& names) const
   
 }
 
-
-
-ColumnVector DCE_Patlak_FwdModel::aifshift( const ColumnVector& aif, const float delta, const float hdelt ) const
-{
-  // Shift a vector in time by interpolation (linear)
-  // NB Makes assumptions where extrapolation is called for.
-   int nshift = floor(delta/hdelt); // number of time points of shift associated with delta
-   float minorshift = delta - nshift*hdelt; // shift within the sampled time points (this is always a 'forward' shift)
-      
-   ColumnVector aifnew(aif);
-   int index;
-   int nhtpts = aif.Nrows();
-   for (int i=1; i<=nhtpts; i++) {
-     index = i-nshift;
-     if (index==1) { aifnew(i) = aif(1)*minorshift/hdelt; } //linear interpolation with zero as 'previous' time point
-     else if (index < 1) { aifnew(i) = 0; } // extrapolation before the first time point - assume aif is zero
-     else if (index>nhtpts) { aifnew(i) = aif(nhtpts); } // extrapolation beyond the final time point - assume aif takes the value of the final time point
-     else {
-       //linear interpolation
-       aifnew(i) = aif(index) + (aif(index-1)-aif(index))*minorshift/hdelt;
-     }
-   }
-   return aifnew;
-}
-
-void DCE_Patlak_FwdModel::createconvmtx( LowerTriangularMatrix& A, const ColumnVector aifnew ) const
-{
-  // create the convolution matrix
-  int nhtpts = aifnew.Nrows();
-
-   if (convmtx=="simple")
-     {
-       // Simple convolution matrix
-       for (int i=1; i<=nhtpts; i++) {//
-     for (int j=1; j <= i; j++) {
-	   A(i,j) = aifnew(i-j+1); //note we are using the local aifnew here! (i.e. it has been suitably time shifted)
-
-     }
-       }
-    }
-
-   //cout << A << endl;
-
-   else if (convmtx=="voltera")
-     {
-       ColumnVector aifextend(nhtpts+2);
-       ColumnVector zero(1);
-       zero=0;
-       aifextend = zero & aifnew & zero;
-       int x, y, z;
-       //voltera convolution matrix (as defined by Sourbron 2007) - assume zeros outside aif range
-       for (int i=1; i<=nhtpts; i++) {
-	 for (int j=1; j <= i; j++) {
-	   //cout << i << "  " << j << endl;
-	   x = i+1;y=j+1; z = i-j+1;
-	   if (j==1) { A(i,j) =(2*aifextend(x) + aifextend(x-1))/6; }
-	   else if (j==i) { A(i,j) = (2*aifextend(2) + aifextend(3))/6; }
-	   else { 
-	     A(i,j) =  (4*aifextend(z) + aifextend(z-1) + aifextend(z+1))/6; 
-	     //cout << x << "  " << y << "  " << z << "  " << ( 4*aifextend(z) + aifextend(z-1) + aifextend(z+1) )/6 << "  " << 1/6*(4*aifextend(z) + aifextend(z-1) + aifextend(z+1)) << endl;
-	     // cout << aifextend(z) << "  " << aifextend(z-1) << "  " << aifextend(z+1) << endl;
-	   }
-	   //cout << i << "  " << j << "  " << aifextend(z) << "  " << A(i,j) << endl<<endl;
-	 }
-       }
-     }
-}

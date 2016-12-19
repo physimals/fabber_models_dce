@@ -6,7 +6,7 @@
 
 /*  CCOPYRIGHT */
 
-#include "fabbercore/fabber_core.h"
+#include "fabber_core/fabber_core.h"
 
 // DCE models to be included from library
 #include "fwdmodel_dce.h"
@@ -25,7 +25,7 @@
 int main(int argc, char** argv) {
 
   //add the DCE models - these will autoregister at this point
-  DCEFwdModel::NewInstance();
+  DCEToftsFwdModel::NewInstance();
   DCE_LLS_FwdModel::NewInstance();
   DCE_Patlak_FwdModel::NewInstance();
   DCE_ETM_FwdModel::NewInstance();

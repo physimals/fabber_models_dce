@@ -5,78 +5,50 @@
     Copyright (C) 2016 University of Oxford  */
 
 /*  CCOPYRIGHT */
+#pragma once
 
-#include "fabbercore/fwdmodel.h"
-#include "fabbercore/inference.h"
+#include "fabber_core/fwdmodel.h"
+#include "fabber_core/inference.h"
 #include <string>
 using namespace std;
 
+using namespace NEWMAT;
+
+/**
+ * Base class for DCE models as they share options
+ */
 class DCEFwdModel : public FwdModel {
 public:
-  static FwdModel* NewInstance();
-
+	DCEFwdModel() : fp_idx(-1), vp_idx(-1), delta_idx(-1), sig0_idx(-1), t10_idx(-1), ps_idx(-1), ve_idx(-1), ktrans_idx(-1) {}
   // Virtual function overrides
+  void GetOptions(vector<OptionSpec> &opts) const;
   virtual void Initialize(ArgsType& args);
-  virtual void Evaluate(const ColumnVector& params, 
-			      ColumnVector& result) const;
-  virtual vector<string> GetUsage() const;
-  virtual string ModelVersion() const;
                   
   virtual void DumpParameters(const ColumnVector& vec,
                                 const string& indents = "") const;
                                 
   virtual void NameParams(vector<string>& names) const;     
   virtual int NumParams() const 
-  { return 4 + (inferdelay?1:0); }
+  { vector<string> names; NameParams(names); return names.size(); }
 
   virtual ~DCEFwdModel() { return; }
-
-  virtual void HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const;
-
-protected: 
-
-  ColumnVector aifshift( const ColumnVector& aif, const float delta, const float hdelt ) const;
-  ColumnVector expConv( const ColumnVector& aifnew,  const float T, const ColumnVector htsamp) const;
-  void createconvmtx( LowerTriangularMatrix& A, const ColumnVector aifnew ) const;
+protected:
+  void MakeParamIndex();
+  std::map<std::string, int> paramIndex;
   
-// Constants
-
-  // Lookup the starting indices of the parameters
-  int Fp_index() const {return 1;}
-
-  int Vp_index() const {  return 2;  }
-
-  int delta_index() const { return 2 + (inferdelay?1:0); }
-
-  int sig0_index() const { return 3 + (inferdelay?1:0); }
-
-  int T10_index() const { return 4 + (inferdelay?1:0); }
+  ColumnVector expConv( const ColumnVector& aifnew,  const float T, const ColumnVector htsamp) const;
+  ColumnVector aifshift( const ColumnVector& aif, const float delta, const float hdelt ) const;
+  void createconvmtx( LowerTriangularMatrix& A, const ColumnVector aifnew ) const;
  
+  // Indices of parameters
+  int fp_idx, vp_idx, delta_idx, sig0_idx, t10_idx, ps_idx, ve_idx, ktrans_idx;
 
-
-//  int art_index() const { return sig0_index() + (inferart?1:0);}
-
-//  int ret_index() const { return art_index() + (inferart?1:0) + (inferret?1:0); } //NB two arterial parameters
-
-//  int cbv_index() const { return ret_index() + (usecbv?1:0); }
-
-//  int disp_index() const { return cbv_index() + (dispoption?1:0); }
-
-  //for ARD
-  vector<int> ard_index;
-
-    // scan parameters
-  //double te;
-  //double r2;
   double delt;
   double TR;
   double FA;
   double r1;
   double Tsat;
   double FA_radians;
-
-  ColumnVector artsig;
-  ColumnVector s;
 
   bool aifconc;
 
@@ -87,9 +59,30 @@ protected:
 
   string convmtx;
   string Acq_tech;
+ 
+  ColumnVector artsig;
   
+  //for ARD
+  vector<int> ard_index;
+};
+
+class DCEToftsFwdModel : public DCEFwdModel {
+public:
+  static FwdModel* NewInstance();
+
+  // Virtual function overrides
+  std::string GetDescription() const;
+  virtual void Evaluate(const ColumnVector& params, 
+			      ColumnVector& result) const;
+  virtual vector<string> GetUsage() const;
+  virtual string ModelVersion() const;
+                  
+  virtual ~DCEToftsFwdModel() { return; }
+  
+  virtual void HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const;
+
   private:
   /** Auto-register with forward model factory. */
-  static FactoryRegistration<FwdModelFactory, DCEFwdModel> registration;
+  static FactoryRegistration<FwdModelFactory, DCEToftsFwdModel> registration;
 
 };

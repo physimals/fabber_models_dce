@@ -13,11 +13,20 @@
 #include <stdexcept>
 #include "newimage/newimageall.h"
 using namespace NEWIMAGE;
-#include "fabbercore/easylog.h"
+#include "fabber_core/easylog.h"
 #include "miscmaths/miscprob.h"
+
+using namespace NEWMAT;
+#include "utils/tracer_plus.h"
+using Utilities::Tracer_Plus;
 
 FactoryRegistration<FwdModelFactory, DCE_2CXM_FwdModel>
   DCE_2CXM_FwdModel::registration("dce_2CXM");
+
+std::string DCE_2CXM_FwdModel::GetDescription() const
+{
+	return "The 2 Compartment Exchange model";
+}
 
 string DCE_2CXM_FwdModel::ModelVersion() const
 {
@@ -34,29 +43,29 @@ void DCE_2CXM_FwdModel::HardcodedInitialDists(MVNDist& prior,
 
     // Set priors
     // Fp or Ktrans whatever you belive
-     prior.means(Fp_index()) = 0.01;
-     precisions(Fp_index(),Fp_index()) = 1e-12;
+     prior.means(fp_idx) = 0.01;
+     precisions(fp_idx,fp_idx) = 1e-12;
 
-     prior.means(Vp_index()) = 0.01;
-     precisions(Vp_index(),Vp_index()) = 1e-12;
+     prior.means(vp_idx) = 0.01;
+     precisions(vp_idx,vp_idx) = 1e-12;
 
-     prior.means(PS_index()) = 0.01;
-     precisions(PS_index(),PS_index()) = 1e-12;
+     prior.means(ps_idx) = 0.01;
+     precisions(ps_idx,ps_idx) = 1e-12;
 
-     prior.means(Ve_index()) = 0.01;
-     precisions(Ve_index(),Ve_index()) = 1e-12;
+     prior.means(ve_idx) = 0.01;
+     precisions(ve_idx,ve_idx) = 1e-12;
 
 
      if (Acq_tech != "none") {
-     precisions(sig0_index(),sig0_index())=1e-12;
-     precisions(T10_index(),T10_index())=10;
+     precisions(sig0_idx,sig0_idx)=1e-12;
+     precisions(t10_idx,t10_idx)=10;
      }
 
 
      if (inferdelay) {
        // delay parameter
-       prior.means(delta_index()) = 0;
-       precisions(delta_index(),delta_index()) = 0.04; //[0.1]; //<1>;
+       prior.means(delta_idx) = 0;
+       precisions(delta_idx,delta_idx) = 0.04; //[0.1]; //<1>;
      }
 
 
@@ -70,23 +79,41 @@ void DCE_2CXM_FwdModel::HardcodedInitialDists(MVNDist& prior,
 
     // For parameters with uniformative prior chosoe more sensible inital posterior
     // Tissue perfusion
-    posterior.means(Fp_index()) = 0.1;
-    precisions(Fp_index(),Fp_index()) = 0.1;
+    posterior.means(fp_idx) = 0.1;
+    precisions(fp_idx,fp_idx) = 0.1;
 
-    posterior.means(Vp_index()) = 0.1;
-    precisions(Vp_index(),Vp_index()) = 0.1;
+    posterior.means(vp_idx) = 0.1;
+    precisions(vp_idx,vp_idx) = 0.1;
 
-    posterior.means(Ve_index()) = 0.1;
-    precisions(Ve_index(),Ve_index()) = 0.1;
+    posterior.means(ve_idx) = 0.1;
+    precisions(ve_idx,ve_idx) = 0.1;
 
-    posterior.means(PS_index()) = 0.1;
-    precisions(PS_index(),PS_index()) = 0.1;
+    posterior.means(ps_idx) = 0.1;
+    precisions(ps_idx,ps_idx) = 0.1;
 
 
     posterior.SetPrecisions(precisions);
 
 }
 
+void DCE_2CXM_FwdModel::NameParams(vector<string>& names) const
+{
+  names.clear();
+  names.push_back("Fp");
+  names.push_back("Vp");
+  names.push_back("PS");
+  names.push_back("Ve");
+  if (inferdelay)
+  names.push_back("delay");
+  if (Acq_tech != "none") {
+      if (Acq_tech == "CT") {
+          names.push_back("sig0");
+      }else{
+   names.push_back("sig0");
+   names.push_back("T10");
+      }
+  }
+}
 
 
 void DCE_2CXM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) const
@@ -115,10 +142,10 @@ void DCE_2CXM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
 
 
    // extract values from params
-   Fp = paramcpy(Fp_index());
-   Vp = paramcpy(Vp_index());
-   PS = paramcpy(PS_index());
-   Ve = paramcpy(Ve_index());
+   Fp = paramcpy(fp_idx);
+   Vp = paramcpy(vp_idx);
+   PS = paramcpy(ps_idx);
+   Ve = paramcpy(ve_idx);
    //cout<<"Fp = "<< Fp<<endl;
    //cout<<"Vp = "<< Vp<<endl;
    //cbf = exp(params(cbf_index()));
@@ -135,7 +162,7 @@ void DCE_2CXM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
    if (PS<1e-8) PS=1e-8;
 
    if (inferdelay) {
-   delta = params(delta_index()); // NOTE: delta is allowed to be negative
+   delta = params(delta_idx); // NOTE: delta is allowed to be negative
    }
    else {
      delta = 0;
@@ -143,10 +170,10 @@ void DCE_2CXM_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& resul
 
    if (Acq_tech != "none") {
        if (Acq_tech == "CT") {
-   sig0 = paramcpy(sig0_index());
+   sig0 = paramcpy(sig0_idx);
        }else{
-   sig0 = paramcpy(sig0_index());
-   T10 = paramcpy(T10_index());
+   sig0 = paramcpy(sig0_idx);
+   T10 = paramcpy(t10_idx);
    FA_radians=FA*3.1415926/180;
        }
     }
@@ -301,63 +328,6 @@ FwdModel* DCE_2CXM_FwdModel::NewInstance()
   return new DCE_2CXM_FwdModel();
 }
 
-void DCE_2CXM_FwdModel::Initialize(ArgsType& args)
-{
-  Tracer_Plus tr("DCE_2CXM_FwdModel::DCE_2CXM_FwdModel");
-    string scanParams = args.ReadWithDefault("scan-params","cmdline");
-
-    if (scanParams == "cmdline")
-    {
-      // specify command line parameters here
-      delt = convertTo<double>(args.Read("delt"));
-
-
-      // specify options of the model
-      inferdelay = args.ReadBool("inferdelay");
-
-      convmtx = args.ReadWithDefault("convmtx","simple");
-
-      // Read in the arterial signal (this will override an image supplied as supplementary data)
-      //ColumnVector artsig;
-      string artfile = args.Read("aif");
-      if (artfile != "none") {
-        artsig = read_ascii_matrix( artfile );
-      }
-
-      Acq_tech = args.ReadWithDefault("Acq_tech","none");
-      cout<<Acq_tech<<endl;
-      if (Acq_tech != "none") {
-          if (Acq_tech == "SPGR") {
-                   FA = convertTo<double>(args.Read("FA"));
-                   TR = convertTo<double>(args.Read("TR"));
-                   r1 = convertTo<double>(args.Read("r1"));
-                 }
-                   if (Acq_tech == "SRTF") {
-                            FA = convertTo<double>(args.Read("FA"));
-                            TR = convertTo<double>(args.Read("TR"));
-                            r1 = convertTo<double>(args.Read("r1"));
-                            Tsat = convertTo<double>(args.Read("Tsat"));
-                          }
-
-      }
-
-      aifconc = args.ReadBool("aifconc"); // indicates that the AIF is a CTC not signal curve
-       // cout<<aifconc<<"  \n";
-      doard=false;
-     // if (inferart) doard=true;
-
-
-      // add information about the parameters to the log
-      /* do logging here*/
-
-    }
-
-    else
-        throw invalid_argument("Only --scan-params=cmdline is accepted at the moment");
-
-
-}
-
 vector<string> DCE_2CXM_FwdModel::GetUsage() const
 {
   vector<string> usage;
@@ -372,126 +342,3 @@ vector<string> DCE_2CXM_FwdModel::GetUsage() const
   return usage;
 }
 
-void DCE_2CXM_FwdModel::DumpParameters(const ColumnVector& vec,
-                                    const string& indent) const
-{
-
-}
-
-void DCE_2CXM_FwdModel::NameParams(vector<string>& names) const
-{
-  names.clear();
-
-  names.push_back("Fp");
-  names.push_back("Vp");
-  names.push_back("PS");
-  names.push_back("Ve");
-  if (inferdelay)
-  names.push_back("delay");
-  if (Acq_tech != "none") {
-      if (Acq_tech == "CT") {
-          names.push_back("sig0");
-      }else{
-   names.push_back("sig0");
-   names.push_back("T10");
-      }
-  }
-
-}
-
-
-
-ColumnVector DCE_2CXM_FwdModel::aifshift( const ColumnVector& aif, const float delta, const float hdelt ) const
-{
-  // Shift a vector in time by interpolation (linear)
-  // NB Makes assumptions where extrapolation is called for.
-   int nshift = floor(delta/hdelt); // number of time points of shift associated with delta
-   float minorshift = delta - nshift*hdelt; // shift within the sampled time points (this is always a 'forward' shift)
-
-   ColumnVector aifnew(aif);
-   int index;
-   int nhtpts = aif.Nrows();
-   for (int i=1; i<=nhtpts; i++) {
-     index = i-nshift;
-     if (index==1) { aifnew(i) = aif(1)*minorshift/hdelt; } //linear interpolation with zero as 'previous' time point
-     else if (index < 1) { aifnew(i) = 0; } // extrapolation before the first time point - assume aif is zero
-     else if (index>nhtpts) { aifnew(i) = aif(nhtpts); } // extrapolation beyond the final time point - assume aif takes the value of the final time point
-     else {
-       //linear interpolation
-       aifnew(i) = aif(index) + (aif(index-1)-aif(index))*minorshift/hdelt;
-     }
-   }
-   return aifnew;
-}
-
-ColumnVector DCE_2CXM_FwdModel::expConv( const ColumnVector& aifnew, const float T, const ColumnVector htsamp) const
-{
-    int nhtpts = aifnew.Nrows();
-    ColumnVector f(nhtpts);
-    if (T==0.0){
-        f=aifnew;
-    }else{
-
-        ColumnVector E(nhtpts-1);
-        ColumnVector E0(nhtpts-1);
-        ColumnVector E1(nhtpts-1);
-        ColumnVector deltime(nhtpts-1);
-        ColumnVector deltaif(nhtpts-1);
-
-        for (int i=2; i<=nhtpts; i++) {
-            deltaif(i-1)=T*(aifnew(i)-aifnew(i-1))/(htsamp(i)-htsamp(i-1));
-            deltime(i-1)=(htsamp(i)-htsamp(i-1))/T;
-        }
-        E=exp(-deltime);
-        E0=1.0-E;
-        E1=deltime-E0;
-        f(1)=0.0;
-        for (int i=2; i<=nhtpts; i++) {
-        f(i)=E(i-1)*f(i-1)+(aifnew(i-1)*E0(i-1)+deltaif(i-1)*E1(i-1));
-        }
-    }
-    return f;
-}
-
-void DCE_2CXM_FwdModel::createconvmtx( LowerTriangularMatrix& A, const ColumnVector aifnew ) const
-{
-  // create the convolution matrix
-  int nhtpts = aifnew.Nrows();
-
-   if (convmtx=="simple")
-     {
-       // Simple convolution matrix
-       for (int i=1; i<=nhtpts; i++) {//
-     for (int j=1; j <= i; j++) {
-       A(i,j) = aifnew(i-j+1); //note we are using the local aifnew here! (i.e. it has been suitably time shifted)
-
-     }
-       }
-    }
-
-   //cout << A << endl;
-
-   else if (convmtx=="voltera")
-     {
-       ColumnVector aifextend(nhtpts+2);
-       ColumnVector zero(1);
-       zero=0;
-       aifextend = zero & aifnew & zero;
-       int x, y, z;
-       //voltera convolution matrix (as defined by Sourbron 2007) - assume zeros outside aif range
-       for (int i=1; i<=nhtpts; i++) {
-     for (int j=1; j <= i; j++) {
-       //cout << i << "  " << j << endl;
-       x = i+1;y=j+1; z = i-j+1;
-       if (j==1) { A(i,j) =(2*aifextend(x) + aifextend(x-1))/6; }
-       else if (j==i) { A(i,j) = (2*aifextend(2) + aifextend(3))/6; }
-       else {
-         A(i,j) =  (4*aifextend(z) + aifextend(z-1) + aifextend(z+1))/6;
-         //cout << x << "  " << y << "  " << z << "  " << ( 4*aifextend(z) + aifextend(z-1) + aifextend(z+1) )/6 << "  " << 1/6*(4*aifextend(z) + aifextend(z-1) + aifextend(z+1)) << endl;
-         // cout << aifextend(z) << "  " << aifextend(z-1) << "  " << aifextend(z+1) << endl;
-       }
-       //cout << i << "  " << j << "  " << aifextend(z) << "  " << A(i,j) << endl<<endl;
-     }
-       }
-     }
-}
