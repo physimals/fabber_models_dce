@@ -1,8 +1,8 @@
 /*  fwdmodel_dce_Patlak.h - Implements the Patlak model
 
-    Jesper Kallehauge, IBME
+ Jesper Kallehauge, IBME
 
-    Copyright (C) 2016 University of Oxford  */
+ Copyright (C) 2016 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
@@ -15,29 +15,34 @@ using namespace std;
 
 using namespace NEWMAT;
 
-class DCE_Patlak_FwdModel : public DCEFwdModel {
+class DCE_Patlak_FwdModel: public DCEFwdModel
+{
 public:
-  static FwdModel* NewInstance();
+	static FwdModel* NewInstance();
 
-  // Virtual function overrides
-  std::string GetDescription() const;
-  virtual void Evaluate(const ColumnVector& params, 
-			      ColumnVector& result) const;
-  virtual vector<string> GetUsage() const;
-  virtual string ModelVersion() const;
-                               
-  virtual void NameParams(vector<string>& names) const;     
-  virtual int NumParams() const 
-  { return 4 + (inferdelay?1:0); }
+	// Virtual function overrides
+	std::string GetDescription() const;
+	virtual void Evaluate(const ColumnVector& params, ColumnVector& result) const;
+	virtual vector<string> GetUsage() const;
+	virtual string ModelVersion() const;
 
-  virtual ~DCE_Patlak_FwdModel() { return; }
+	virtual void NameParams(vector<string>& names) const;
+	virtual int NumParams() const
+	{
+		return 4 + (inferdelay ? 1 : 0);
+	}
 
-  virtual void HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const;
+	virtual ~DCE_Patlak_FwdModel()
+	{
+		return;
+	}
 
-protected: 
+	virtual void HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const;
 
-  private:
-  /** Auto-register with forward model factory. */
-  static FactoryRegistration<FwdModelFactory, DCE_Patlak_FwdModel> registration;
+protected:
+
+private:
+	/** Auto-register with forward model factory. */
+	static FactoryRegistration<FwdModelFactory, DCE_Patlak_FwdModel> registration;
 
 };
