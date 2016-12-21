@@ -17,8 +17,6 @@ using namespace NEWIMAGE;
 #include "miscmaths/miscprob.h"
 
 using namespace NEWMAT;
-#include "utils/tracer_plus.h"
-using Utilities::Tracer_Plus;
 
 FactoryRegistration<FwdModelFactory, DCE_CTU_FwdModel> DCE_CTU_FwdModel::registration("dce_CTU");
 
@@ -34,7 +32,6 @@ string DCE_CTU_FwdModel::ModelVersion() const
 
 void DCE_CTU_FwdModel::HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const
 {
-	Tracer_Plus tr("DCE_CTU_FwdModel::HardcodedInitialDists");
 	assert(prior.means.Nrows() == NumParams());
 
 	SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e-12;
@@ -86,8 +83,6 @@ void DCE_CTU_FwdModel::HardcodedInitialDists(MVNDist& prior, MVNDist& posterior)
 
 void DCE_CTU_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) const
 {
-	Tracer_Plus tr("DCE_CTU_FwdModel::Evaluate");
-
 	// ensure that values are reasonable
 	// negative check
 	ColumnVector paramcpy = params;

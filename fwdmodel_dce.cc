@@ -17,8 +17,6 @@ using namespace NEWIMAGE;
 #include "miscmaths/miscprob.h"
 
 using namespace NEWMAT;
-#include "utils/tracer_plus.h"
-using Utilities::Tracer_Plus;
 
 FactoryRegistration<FwdModelFactory, DCEToftsFwdModel> DCEToftsFwdModel::registration("dce");
 
@@ -27,9 +25,9 @@ static OptionSpec OPTIONS[] =
 { "delt", OPT_FLOAT, "In minutes", OPT_REQ, "" },
 { "inferdelay", OPT_BOOL, "Whether to infer the delay parameter", OPT_NONREQ, "" },
 { "convmtx", OPT_STR, "expConv, simple or voltera", OPT_NONREQ, "simple" },
-{ "aif", OPT_MATRIX,
-		"Arterial signal image as ASCII matrix (will override supplemental data). Required, but can be given as 'none'",
-		OPT_REQ, "" },
+{ "aif", OPT_FILE,
+		"Fixed arterial signal as single-column ASCII data (will override supplemental data)",
+		OPT_NONREQ, "none" },
 { "Acq_tech", OPT_STR, "Acquisition tech (SPGR, SRTF or none)", OPT_NONREQ, "none" },
 { "FA", OPT_FLOAT, "In degrees. Required if Acq_tech is not none", OPT_NONREQ, "" },
 { "TR", OPT_FLOAT, "In seconds. Required if Acq_tech is not none", OPT_NONREQ, "" },
@@ -48,7 +46,6 @@ void DCEFwdModel::GetOptions(vector<OptionSpec> &opts) const
 
 void DCEFwdModel::Initialize(ArgsType& args)
 {
-	Tracer_Plus tr("DCEToftsFwdModel::DCEToftsFwdModel");
 	string scanParams = args.ReadWithDefault("scan-params", "cmdline");
 
 	if (scanParams == "cmdline")
@@ -62,16 +59,14 @@ void DCEFwdModel::Initialize(ArgsType& args)
 		convmtx = args.ReadWithDefault("convmtx", "simple");
 
 		// Read in the arterial signal (this will override an image supplied as supplementary data)
-		//ColumnVector artsig;
-		string artfile = args.Read("aif");
+		string artfile = args.ReadWithDefault("aif", "none");
 		if (artfile != "none")
 		{
 			artsig = read_ascii_matrix(artfile);
-
-			//cout<<data<<"  \n";
-			//exit(0);
 		}
-
+		
+                string artimg = args.ReadWithDefault("aifimg", "");
+		
 		Acq_tech = args.ReadWithDefault("Acq_tech", "none");
 		cout << Acq_tech << endl;
 		if (Acq_tech != "none")
@@ -310,7 +305,6 @@ string DCEToftsFwdModel::ModelVersion() const
 
 void DCEToftsFwdModel::HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const
 {
-	Tracer_Plus tr("DCEToftsFwdModel::HardcodedInitialDists");
 	assert(prior.means.Nrows() == NumParams());
 
 	SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e-12;
@@ -356,8 +350,6 @@ void DCEToftsFwdModel::HardcodedInitialDists(MVNDist& prior, MVNDist& posterior)
 
 void DCEToftsFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) const
 {
-	Tracer_Plus tr("DCEToftsFwdModel::Evaluate");
-
 	// ensure that values are reasonable
 	// negative check
 	ColumnVector paramcpy = params;

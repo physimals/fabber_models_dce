@@ -23,7 +23,7 @@ set(MODELS_SRC
     fwdmodel_dce_Patlak.cc
     fwdmodel_dce_Patlak.h)
     
-add_library(fabber_models_${MODELS_NAME} SHARED ${MODELS_SRC})
+add_library(fabber_models_${MODELS_NAME} SHARED ${MODELS_SRC} ${MODELS_NAME}_models.cc)
 add_executable(fabber_${MODELS_NAME} ${MODELS_SRC} fabber_client.cc)
 
 if(APPLE)
@@ -72,8 +72,7 @@ find_library(Z_LIBRARY NAMES z libz zlib zlibd
 find_library(PROB_LIBRARY NAMES prob libprob
              HINTS $ENV{FSLDIR}/extras/lib REQUIRED )
 
-set(SHLIBS ${PROB_LIBRARY})
-set(LIBS ${FABBER_LIBRARY} ${FABBER_EXEC_LIBRARY}  ${NEWIMAGE_LIBRARY} ${FSLIO_LIBRARY} ${NIFTIIO_LIBRARY} ${MISCMATHS_LIBRARY} ${UTILS_LIBRARY} ${ZNZ_LIBRARY} ${Z_LIBRARY} ${NEWMAT_LIBRARY} ${PROB_LIBRARY})
+set(LIBS ${FABBER_LIBRARY} ${FABBER_EXEC_LIBRARY}  ${NEWIMAGE_LIBRARY} ${FSLIO_LIBRARY} ${MISCMATHS_LIBRARY} ${NIFTIIO_LIBRARY}  ${ZNZ_LIBRARY} ${Z_LIBRARY} ${NEWMAT_LIBRARY} ${PROB_LIBRARY})
 
 if (UNIX)
   set(LIBS ${LIBS} dl)
@@ -91,6 +90,8 @@ Message("-- Using newimage: ${NEWIMAGE_LIBRARY}")
 Message("-- Using prob: ${PROB_LIBRARY}")
 Message("-- Using zlib: ${Z_LIBRARY}")
 
+#set(SHLIBS ${PROB_LIBRARY})
+set(SHLIBS ${LIBS})
 target_link_libraries(fabber_models_${MODELS_NAME} ${SHLIBS})
 target_link_libraries(fabber_${MODELS_NAME} ${LIBS})
 
