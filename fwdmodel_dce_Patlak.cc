@@ -25,11 +25,6 @@ std::string DCE_Patlak_FwdModel::GetDescription() const
 	return "The Patlak model";
 }
 
-string DCE_Patlak_FwdModel::ModelVersion() const
-{
-	return "$Id: fwdmodel_dce_Patlak.cc,v 1.11 2016/01/06 15:20:47 Kallehauge Exp $";
-}
-
 void DCE_Patlak_FwdModel::HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const
 {
 	assert(prior.means.Nrows() == NumParams());

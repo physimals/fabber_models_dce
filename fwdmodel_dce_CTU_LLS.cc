@@ -26,11 +26,6 @@ std::string DCE_CTU_LLS_FwdModel::GetDescription() const
 	return "The Linear Compartmental Tissue Uptake model";
 }
 
-string DCE_CTU_LLS_FwdModel::ModelVersion() const
-{
-	return "$Id: fwdmodel_dce_CTU_LLS.cc,v 1.11 2016/01/06 15:20:47 Kallehauge Exp $";
-}
-
 void DCE_CTU_LLS_FwdModel::HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const
 {
 	assert(prior.means.Nrows() == NumParams());

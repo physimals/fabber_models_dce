@@ -25,11 +25,6 @@ std::string DCE_2CXM_FwdModel::GetDescription() const
 	return "The 2 Compartment Exchange model";
 }
 
-string DCE_2CXM_FwdModel::ModelVersion() const
-{
-	return "$Id: fwdmodel_dce_2CXM.cc,v 1.11 2016/01/06 15:20:47 Kallehauge Exp $";
-}
-
 void DCE_2CXM_FwdModel::HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const
 {
 	assert(prior.means.Nrows() == NumParams());

@@ -44,6 +44,18 @@ void DCEFwdModel::GetOptions(vector<OptionSpec> &opts) const
 	}
 }
 
+string DCEFwdModel::ModelVersion() const
+{
+    string version = "Fabber DCE models: ";
+#ifdef GIT_SHA1
+    version += string(" Revision ") + GIT_SHA1;
+#endif
+#ifdef GIT_DATE
+    version += string(" Last commit ") + GIT_DATE;
+#endif
+    return version;
+}
+
 void DCEFwdModel::Initialize(ArgsType& args)
 {
 	string scanParams = args.ReadWithDefault("scan-params", "cmdline");
@@ -296,11 +308,6 @@ void DCEFwdModel::createconvmtx(LowerTriangularMatrix& A, const ColumnVector aif
 std::string DCEToftsFwdModel::GetDescription() const
 {
 	return "The One compartment model often refered to as the standard Tofts model";
-}
-
-string DCEToftsFwdModel::ModelVersion() const
-{
-	return "$Id: fwdmodel_dce.cc,v 1.11 2016/01/06 15:20:47 Kallehauge Exp $";
 }
 
 void DCEToftsFwdModel::HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const

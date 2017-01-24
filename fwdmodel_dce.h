@@ -26,6 +26,7 @@ public:
 	}
 	// Virtual function overrides
 	void GetOptions(vector<OptionSpec> &opts) const;
+	virtual string ModelVersion() const;
 	virtual void Initialize(ArgsType& args);
 
 	virtual void DumpParameters(const ColumnVector& vec, const string& indents = "") const;
@@ -85,7 +86,6 @@ public:
 	std::string GetDescription() const;
 	virtual void Evaluate(const ColumnVector& params, ColumnVector& result) const;
 	virtual vector<string> GetUsage() const;
-	virtual string ModelVersion() const;
 
 	virtual ~DCEToftsFwdModel()
 	{

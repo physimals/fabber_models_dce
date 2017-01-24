@@ -24,7 +24,6 @@ public:
 	std::string GetDescription() const;
 	virtual void Evaluate(const ColumnVector& params, ColumnVector& result) const;
 	virtual vector<string> GetUsage() const;
-	virtual string ModelVersion() const;
 
 	virtual void NameParams(vector<string>& names) const;
 	virtual int NumParams() const

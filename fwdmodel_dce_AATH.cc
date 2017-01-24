@@ -25,11 +25,6 @@ std::string DCE_AATH_FwdModel::GetDescription() const
 	return "The Adiabatic Approximation to the Tissue Homogeniety model";
 }
 
-string DCE_AATH_FwdModel::ModelVersion() const
-{
-	return "$Id: fwdmodel_dce_AATH.cc,v 1.11 2016/01/06 15:20:47 Kallehauge Exp $";
-}
-
 void DCE_AATH_FwdModel::HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const
 {
 	assert(prior.means.Nrows() == NumParams());
