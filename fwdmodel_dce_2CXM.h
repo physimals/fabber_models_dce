@@ -9,32 +9,24 @@
 #include "fwdmodel_dce.h"
 
 #include "fabber_core/fwdmodel.h"
-#include "fabber_core/inference.h"
+
 #include <string>
-using namespace std;
+#include <vector>
 
-using namespace NEWMAT;
-
-class DCE_2CXM_FwdModel: public DCEFwdModel
+class DCE_2CXM_FwdModel : public DCEFwdModel
 {
 public:
-	static FwdModel* NewInstance();
+    static FwdModel *NewInstance();
 
-	// Virtual function overrides
-	std::string GetDescription() const;
-	virtual void Evaluate(const ColumnVector& params, ColumnVector& result) const;
-	virtual vector<string> GetUsage() const;
-	virtual void NameParams(vector<string>& names) const;
+    // Virtual function overrides
+    std::string GetDescription() const;
+    virtual void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
+    virtual std::vector<std::string> GetUsage() const;
+    virtual void NameParams(std::vector<std::string> &names) const;
 
-	virtual ~DCE_2CXM_FwdModel()
-	{
-		return;
-	}
-
-	virtual void HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const;
+    virtual void HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const;
 
 private:
-	/** Auto-register with forward model factory. */
-	static FactoryRegistration<FwdModelFactory, DCE_2CXM_FwdModel> registration;
-
+    /** Auto-register with forward model factory. */
+    static FactoryRegistration<FwdModelFactory, DCE_2CXM_FwdModel> registration;
 };
