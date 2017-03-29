@@ -20,6 +20,11 @@ OBJS =  fwdmodel_dce.o fwdmodel_dce_LLS.o fwdmodel_dce_Patlak.o fwdmodel_dce_ETM
 OPTFLAGS = -ggdb
 #OPTFLAGS =
 
+# Pass Git revision details
+GIT_SHA1:=$(shell git describe --match=NeVeRmAtCh --always --abbrev=40 --dirty)
+GIT_DATE:=$(shell git log -1 --format=%ad --date=local)
+CXXFLAGS += -DGIT_SHA1=\"${GIT_SHA1}\" -DGIT_DATE="\"${GIT_DATE}\""
+
 #
 # Build
 #
