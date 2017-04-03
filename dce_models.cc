@@ -20,14 +20,18 @@ Copyright (C) 2010-2011 University of Oxford */
 #include "fwdmodel_dce_ETM_LLS.h"
 #include "fwdmodel_dce_LLS.h"
 #include "fwdmodel_dce_Patlak.h"
+#include "fwdmodel_dce_tofts.h"
+
+#include "dce_models.h"
 
 extern "C" {
-int get_num_models()
+
+int CALL get_num_models()
 {
-    return 10;
+    return 11;
 }
 
-const char *get_model_name(int index)
+const char * CALL get_model_name(int index)
 {
     switch (index)
     {
@@ -61,12 +65,15 @@ const char *get_model_name(int index)
     case 9:
         return "dce_Patlak";
         break;
+    case 10:
+        return "dce_tofts";
+        break;
     default:
         return NULL;
     }
 }
 
-NewInstanceFptr get_new_instance_func(const char *name)
+NewInstanceFptr CALL get_new_instance_func(const char *name)
 {
     if (string(name) == "dce")
     {
@@ -107,6 +114,10 @@ NewInstanceFptr get_new_instance_func(const char *name)
     else if (string(name) == "dce_Patlak")
     {
         return DCE_Patlak_FwdModel::NewInstance;
+    } 
+    else if (string(name) == "dce_tofts")
+    {
+        return DCEStdToftsFwdModel::NewInstance;
     }
     else
     {

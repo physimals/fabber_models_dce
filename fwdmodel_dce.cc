@@ -21,16 +21,16 @@ using namespace NEWMAT;
 FactoryRegistration<FwdModelFactory, DCEToftsFwdModel> DCEToftsFwdModel::registration("dce");
 
 static OptionSpec OPTIONS[] = {
-    { "delt", OPT_FLOAT, "In minutes", OPT_REQ, "" },
-    { "inferdelay", OPT_BOOL, "Whether to infer the delay parameter", OPT_NONREQ, "" },
+    { "delt", OPT_FLOAT, "Time resolution between volumes, in minutes", OPT_REQ, "" },
+    { "inferdelay", OPT_BOOL, "Infer the delay parameter", OPT_NONREQ, "" },
     { "convmtx", OPT_STR, "expConv, simple or voltera", OPT_NONREQ, "simple" },
     { "aif", OPT_FILE,
-        "Fixed arterial signal as single-column ASCII data (will override supplemental data)",
+        "Fixed AIF arterial signal as single-column ASCII data. Must be concentration curve, not signal curve",
         OPT_NONREQ, "none" },
     { "Acq_tech", OPT_STR, "Acquisition tech (SPGR, SRTF or none)", OPT_NONREQ, "none" },
-    { "FA", OPT_FLOAT, "In degrees. Required if Acq_tech is not none", OPT_NONREQ, "" },
-    { "TR", OPT_FLOAT, "In seconds. Required if Acq_tech is not none", OPT_NONREQ, "" },
-    { "r1", OPT_FLOAT, "In s^-1 mM^-1. Required if Acq_tech is not none", OPT_NONREQ, "" },
+    { "FA", OPT_FLOAT, "Flip angle in degrees. Required if Acq_tech is not none", OPT_NONREQ, "" },
+    { "TR", OPT_FLOAT, "Repetition time (TR) In seconds. Required if Acq_tech is not none", OPT_NONREQ, "" },
+    { "r1", OPT_FLOAT, "Relaxivity of contrast agent, In s^-1 mM^-1. Required if Acq_tech is not none", OPT_NONREQ, "" },
     { "Tsat", OPT_FLOAT, "In seconds. Required if Acq_tech is SRTF", OPT_NONREQ, "" },
     { "aifconc", OPT_BOOL, "Indicates that the AIF is a CTC not signal curve", OPT_NONREQ, "" },
     { "" },
@@ -313,7 +313,7 @@ void DCEToftsFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior)
 
     // Set priors
     // Fp or Ktrans whatever you belive
-    prior.means(fp_idx) = 0.01;
+    prior.means(fp_idx) = 0.1;
     precisions(fp_idx, fp_idx) = 1e-12;
 
     prior.means(vp_idx) = 0.01;
