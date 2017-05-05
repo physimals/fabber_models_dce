@@ -49,15 +49,30 @@ public:
     float SignalFromConcentration(float C, float t10,float m0) const;
     float ConcentrationFromSignal(float s, float s0, float t10, float hct) const;
 private:
-    double m_FA, m_TR, m_r1, m_dt, m_vp, m_delay, m_T10, m_sig0;
-    bool m_infer_vp, m_infer_delay, m_infer_t10, m_infer_sig0, m_use_log;
-    NEWMAT::ColumnVector aif;
-    
+    // Mandatory
+    double m_FA, m_TR, m_r1, m_dt;
+    std::string m_aif_type;
+
+    // Optional
+    double m_vp, m_delay, m_T10, m_sig0;
+
+    // Orton AIF
+    double m_ab, m_ag, m_mub, m_mug;
+
+    // Inference flags
+    bool m_infer_vp, m_infer_delay, m_infer_t10, m_infer_sig0;
+
+    // Other flags
+    bool  m_use_log;
+
+    // AIF as concentration curve
+    NEWMAT::ColumnVector m_aif;
     
     float LogOrNot(float p) const;
-    NEWMAT::ColumnVector convolution(const NEWMAT::ColumnVector &myaif, float Vp, float Ktrans, float Kep) const;
+    NEWMAT::ColumnVector GetConcentrationMeasuredAif(float delay, float Vp, float Ktrans, float Kep) const;
     NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const float delay) const;
-    
+    NEWMAT::ColumnVector GetConcentrationOrton(float Vp, float Ktrans, float Ve) const;
+
     /** Auto-register with forward model factory. */
     static FactoryRegistration<FwdModelFactory, DCEStdToftsFwdModel> registration;
 };
