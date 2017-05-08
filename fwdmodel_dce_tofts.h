@@ -45,9 +45,11 @@ public:
     }
 
     virtual void HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const;
+
+    //virtual bool Gradient(const NEWMAT::ColumnVector &params, NEWMAT::Matrix &grad) const;
     virtual void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
-    float SignalFromConcentration(float C, float t10,float m0) const;
-    float ConcentrationFromSignal(float s, float s0, float t10, float hct) const;
+    double SignalFromConcentration(double C, double t10,double m0) const;
+    double ConcentrationFromSignal(double s, double s0, double t10, double hct) const;
 private:
     // Mandatory
     double m_FA, m_TR, m_r1, m_dt;
@@ -68,10 +70,10 @@ private:
     // AIF as concentration curve
     NEWMAT::ColumnVector m_aif;
     
-    float LogOrNot(float p) const;
-    NEWMAT::ColumnVector GetConcentrationMeasuredAif(float delay, float Vp, float Ktrans, float Kep) const;
-    NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const float delay) const;
-    NEWMAT::ColumnVector GetConcentrationOrton(float Vp, float Ktrans, float Ve) const;
+    double LogOrNot(double p) const;
+    NEWMAT::ColumnVector GetConcentrationMeasuredAif(double delay, double Vp, double Ktrans, double Kep) const;
+    NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const double delay) const;
+    NEWMAT::ColumnVector GetConcentrationOrton(double Vp, double Ktrans, double Ve) const;
 
     /** Auto-register with forward model factory. */
     static FactoryRegistration<FwdModelFactory, DCEStdToftsFwdModel> registration;
