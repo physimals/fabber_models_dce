@@ -157,7 +157,7 @@ void DCEFwdModel::MakeParamIndex()
 {
     vector<string> names;
     NameParams(names);
-    for (int i = 0; i < names.size(); i++)
+    for (unsigned int i = 0; i < names.size(); i++)
     {
         if (names[i] == "Fp")
             fp_idx = i + 1;
@@ -270,7 +270,7 @@ void DCEFwdModel::createconvmtx(LowerTriangularMatrix &A, const ColumnVector aif
         ColumnVector zero(1);
         zero = 0;
         aifextend = zero & aifnew & zero;
-        int x, y, z;
+        int x, z;
         //voltera convolution matrix (as defined by Sourbron 2007) - assume zeros outside aif range
         for (int i = 1; i <= nhtpts; i++)
         {
@@ -278,7 +278,6 @@ void DCEFwdModel::createconvmtx(LowerTriangularMatrix &A, const ColumnVector aif
             {
                 //cout << i << "  " << j << endl;
                 x = i + 1;
-                y = j + 1;
                 z = i - j + 1;
                 if (j == 1)
                 {
