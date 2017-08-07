@@ -29,8 +29,8 @@ add_library(fabber_models_${MODELS_NAME} SHARED ${MODELS_SRC} ${MODELS_NAME}_mod
 add_executable(fabber_${MODELS_NAME} ${MODELS_SRC} fabber_client.cc)
 
 if(APPLE)
-  # Force use of libstdc++ on Mac as FSL uses this and we cannot link otherwise
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libstdc++")
+  # Uncomment to force use of libstdc++ on Mac as FSL uses this and we cannot link otherwise
+  # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libstdc++")
   # Get rid of CMake warning
   set(CMAKE_MACOSX_RPATH ON)
 endif(APPLE)
