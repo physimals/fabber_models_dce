@@ -31,7 +31,7 @@ int CALL get_num_models()
     return 11;
 }
 
-const char * CALL get_model_name(int index)
+const char *CALL get_model_name(int index)
 {
     switch (index)
     {
@@ -114,7 +114,7 @@ NewInstanceFptr CALL get_new_instance_func(const char *name)
     else if (string(name) == "dce_Patlak")
     {
         return DCE_Patlak_FwdModel::NewInstance;
-    } 
+    }
     else if (string(name) == "dce_tofts")
     {
         return DCEStdToftsFwdModel::NewInstance;

@@ -48,8 +48,9 @@ public:
 
     //virtual bool Gradient(const NEWMAT::ColumnVector &params, NEWMAT::Matrix &grad) const;
     virtual void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
-    double SignalFromConcentration(double C, double t10,double m0) const;
+    double SignalFromConcentration(double C, double t10, double m0) const;
     double ConcentrationFromSignal(double s, double s0, double t10, double hct) const;
+
 private:
     // Mandatory
     double m_FA, m_TR, m_r1, m_dt;
@@ -65,11 +66,11 @@ private:
     bool m_infer_vp, m_infer_delay, m_infer_t10, m_infer_sig0;
 
     // Other flags
-    bool  m_use_log;
+    bool m_use_log;
 
     // AIF as concentration curve
     NEWMAT::ColumnVector m_aif;
-    
+
     double LogOrNot(double p) const;
     NEWMAT::ColumnVector GetConcentrationMeasuredAif(double delay, double Vp, double Ktrans, double Kep) const;
     NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const double delay) const;
