@@ -264,6 +264,12 @@ static double orton_f(double t, double a, double mub)
     return ret;
 }
 
+/* Reference for this technique:
+Orton, 2008
+Computationally efficient vascular input function models for quantitative kinetic modelling using DCE-MRI
+http://iopscience.iop.org/article/10.1088/0031-9155/53/5/005/meta
+*/
+// This is an implementation of Model 3 of Orton's paper
 ColumnVector DCEStdToftsFwdModel::GetConcentrationOrton(double Vp, double Ktrans, double Ve) const
 {
     ColumnVector f(data.Nrows());
