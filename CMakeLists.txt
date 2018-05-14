@@ -36,7 +36,7 @@ if(APPLE)
 endif(APPLE)
 
 find_path(FABBER_INCLUDE_DIR fabber_core/fwdmodel.h
-            HINTS $ENV{FSLDIR}/include .. REQUIRED)
+            HINTS $ENV{FSLDEVDIR}/include $ENV{FSLDIR}/include .. REQUIRED)
 find_path(NEWMAT_INCLUDE_DIR newmat.h
             HINTS $ENV{FSLDIR}/extras/include/newmat REQUIRED)
 find_path(FSL_INCLUDE_DIR newimage/newimage.h
