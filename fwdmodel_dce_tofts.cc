@@ -8,11 +8,15 @@
 
 #include "fwdmodel_dce_tofts.h"
 
-#include "fabber_core/easylog.h"
-#include "miscmaths/miscprob.h"
-#include "newimage/newimageall.h"
-#include <iostream>
+#include <fabber_core/easylog.h>
+#include <fabber_core/priors.h>
+
+#include <miscmaths/miscprob.h>
+#include <newimage/newimageall.h>
+
 #include <newmatio.h>
+
+#include <iostream>
 #include <stdexcept>
 
 using namespace NEWMAT;
@@ -31,9 +35,9 @@ static OptionSpec OPTIONS[] = {
     { "vp", OPT_FLOAT, "Fractional volume of blood plasma (Vp) in tissue", OPT_NONREQ, "0" },
     { "infer-vp", OPT_BOOL, "Infer the Vp parameter", OPT_NONREQ, "" },
     { "infer-delay", OPT_BOOL, "Infer the delay parameter", OPT_NONREQ, "" },
+    { "infer-ve", OPT_BOOL, "Infer Ve rather than kep. Normally inferring kep is more numerically stable.", OPT_NONREQ, "" },
     { "infer-sig0", OPT_BOOL, "Infer baseline signal", OPT_NONREQ, "" },
-    { "infer-T10", OPT_BOOL, "Infer T10 value", OPT_NONREQ, "" },
-    { "use-log-params", OPT_BOOL, "Infer log values of parameters", OPT_NONREQ, "" },
+    { "infer-t10", OPT_BOOL, "Infer t10 value", OPT_NONREQ, "" },
     { "aif-file", OPT_FILE,
         "File containing single-column ASCII data defining the AIF. For aif=signal, this is the vascular signal curve. For aif=conc, it should be the blood plasma concentration curve",
         OPT_NONREQ, "none" },
@@ -66,65 +70,55 @@ string DCEStdToftsFwdModel::ModelVersion() const
     return version;
 }
 
-void DCEStdToftsFwdModel::Initialize(FabberRunData &args)
+void DCEStdToftsFwdModel::Initialize(FabberRunData &rundata)
 {
-    //cerr << "Initialize" << endl;
     // Mandatory parameters
-    m_dt = args.GetDouble("delt", 0);
-    m_FA = args.GetDouble("fa", 0, 90) * 3.1415926 / 180;
-    m_TR = args.GetDouble("tr");
-    m_r1 = args.GetDouble("r1");
-    m_aif_type = args.GetString("aif");
+    m_dt = rundata.GetDouble("delt", 0);
+    m_fa = rundata.GetDouble("fa", 0, 90) * 3.1415926 / 180;
+    m_tr = rundata.GetDouble("tr");
+    m_r1 = rundata.GetDouble("r1");
+    m_aif_type = rundata.GetString("aif");
     if (m_aif_type == "signal")
     {
-        ColumnVector aif_sig = read_ascii_matrix(args.GetString("aif-file"));
-        // Convert AIF to concentration curve
-        double aif_t1 = args.GetDoubleDefault("aif-t1", 1.4);
-        double aif_hct = args.GetDoubleDefault("aif-hct", 0.45);
+        // Convert AIF signal to concentration curve
+        ColumnVector aif_sig = read_ascii_matrix(rundata.GetString("aif-file"));
+        double aif_t1 = rundata.GetDoubleDefault("aif-t1", 1.4);
+        double aif_hct = rundata.GetDoubleDefault("aif-hct", 0.45);
         double aif_sig0 = aif_sig(1);
         m_aif = aif_sig;
         for (int t = 0; t < m_aif.Nrows(); t++)
         {
             m_aif(t + 1) = ConcentrationFromSignal(aif_sig(t + 1), aif_sig0, aif_t1, aif_hct);
-            //cerr << "t=" << t << "aif C=" << aif(t+1) << endl;
         }
     }
     else if (m_aif_type == "conc")
     {
-        m_aif = read_ascii_matrix(args.GetString("aif-file"));
+        m_aif = read_ascii_matrix(rundata.GetString("aif-file"));
     }
     else if (m_aif_type == "orton")
     {
-        m_ab = args.GetDoubleDefault("aif-ab", 2.84);
-        m_ag = args.GetDoubleDefault("aif-ag", 1.36);
-        m_mub = args.GetDoubleDefault("aif-mub", 22.8);
-        m_mug = args.GetDoubleDefault("aif-mug", 0.171);
+        m_ab = rundata.GetDoubleDefault("aif-ab", 2.84);
+        m_ag = rundata.GetDoubleDefault("aif-ag", 1.36);
+        m_mub = rundata.GetDoubleDefault("aif-mub", 22.8);
+        m_mug = rundata.GetDoubleDefault("aif-mug", 0.171);
     }
     else
     {
         throw InvalidOptionValue("aif", m_aif_type, "Must be signal, conc or orton");
     }
 
-    // Optional parameters. All of these can be inferred as well
-    m_vp = args.GetDoubleDefault("vp", 0);
-    m_T10 = args.GetDoubleDefault("t10", 1);
-    m_sig0 = args.GetDoubleDefault("sig0", 1000);
-    m_delay = args.GetDoubleDefault("delay", 0);
-    m_infer_vp = args.ReadBool("infer-vp");
-    m_infer_t10 = args.ReadBool("infer-t10");
-    m_infer_sig0 = args.ReadBool("infer-sig0");
-    m_infer_delay = args.ReadBool("infer-delay");
+    // Additional model parameters. All of these can be inferred if required
+    m_vp = rundata.GetDoubleDefault("vp", 0);
+    m_t10 = rundata.GetDoubleDefault("t10", 1);
+    m_sig0 = rundata.GetDoubleDefault("sig0", 1000);
+    m_delay = rundata.GetDoubleDefault("delay", 0);
+    m_infer_vp = rundata.ReadBool("infer-vp");
+    m_infer_t10 = rundata.ReadBool("infer-t10");
+    m_infer_sig0 = rundata.ReadBool("infer-sig0");
+    m_infer_delay = rundata.ReadBool("infer-delay");
 
-    m_use_log = args.ReadBool("use-log-params");
-    //cerr << "Done Init" << endl;
-}
-
-vector<string> DCEStdToftsFwdModel::GetUsage() const
-{
-    vector<string> usage;
-
-    usage.push_back("\nThis model implements the standard and Extended Tofts one compartment model\n");
-    return usage;
+    // Infer Ve rather than kep. kep is generally a bit more stable
+    m_infer_ve = rundata.ReadBool("infer-ve");
 }
 
 std::string DCEStdToftsFwdModel::GetDescription() const
@@ -132,123 +126,48 @@ std::string DCEStdToftsFwdModel::GetDescription() const
     return "Standard and Extended Tofts one compartment model";
 }
 
-void DCEStdToftsFwdModel::DumpParameters(const ColumnVector &vec, const string &indent) const
+void DCEStdToftsFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
 {
-}
+    params.clear();
 
-void DCEStdToftsFwdModel::NameParams(vector<string> &names) const
-{
-    names.clear();
+    int p=0;
+    params.push_back(Parameter(p++, "ktrans", DistParams(0.02, 1e20), DistParams(0.02, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
+    
+    if (m_infer_ve) {
+        // VE has a tendancy to go negative - an 'absolute value' transform seems to help
+        params.push_back(Parameter(p++, "ve", DistParams(0.02, 1e20), DistParams(0.02, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
+    }
+    else {
+        params.push_back(Parameter(p++, "kep", DistParams(0.02, 1e20), DistParams(0.02, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
+    }
 
-    names.push_back("Ktrans");
-    names.push_back("Ve");
     if (m_infer_vp)
-        names.push_back("Vp");
+        params.push_back(Parameter(p++, "vp", DistParams(0.01, 100), DistParams(0.01, 100)));
     if (m_infer_t10)
-        names.push_back("T10");
+        params.push_back(Parameter(p++, "t10", DistParams(m_t10, 1e12), DistParams(m_t10, 10)));
     if (m_infer_sig0)
-        names.push_back("sig0");
+        params.push_back(Parameter(p++, "sig0", DistParams(m_sig0, 1e12), DistParams(m_sig0, m_sig0/10)));
     if (m_infer_delay)
-        names.push_back("delay");
+        params.push_back(Parameter(p++, "delay", DistParams(0, 100), DistParams(100, 100)));
 }
 
-double DCEStdToftsFwdModel::LogOrNot(double p) const
-{
-    if (m_use_log)
-        return log(p);
-    else
-        return p;
-}
-
-void DCEStdToftsFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
-{
-    //cerr << "priors" << endl;
-    assert(prior.means.Nrows() == NumParams());
-
-    SymmetricMatrix precs_prior = IdentityMatrix(NumParams()) * 1e-12;
-    SymmetricMatrix precs_post = IdentityMatrix(NumParams()) * 1e-12;
-    int p = 1;
-
-    // Ktrans
-    prior.means(p) = LogOrNot(0.02);
-    precs_prior(p, p) = 1e-20;
-    precs_post(p, p) = 1;
-    p++;
-
-    // Ve
-    prior.means(p) = LogOrNot(0.02);
-    precs_prior(p, p) = 1e-20;
-    precs_post(p, p) = 1;
-    p++;
-
-    // Vp
-    if (m_infer_vp)
-    {
-        prior.means(p) = LogOrNot(0.01);
-        precs_prior(p, p) = 100;
-        precs_post(p, p) = 100;
-        p++;
-    }
-
-    // T10
-    if (m_infer_t10)
-    {
-        prior.means(p) = LogOrNot(m_T10);
-        precs_prior(p, p) = 1e-12;
-        precs_post(p, p) = 0.1;
-        p++;
-    }
-
-    // sig0
-    if (m_infer_sig0)
-    {
-        prior.means(p) = m_sig0;
-        precs_prior(p, p) = 1e-12;
-        precs_post(p, p) = 0.1;
-        p++;
-    }
-
-    // delay
-    if (m_infer_delay)
-    {
-        prior.means(p) = 0;
-        precs_prior(p, p) = 1e-2;
-        precs_post(p, p) = 1e-2;
-        p++;
-    }
-
-    // Set precsions on priors
-    prior.SetPrecisions(precs_prior);
-
-    // Set initial posterior
-    posterior = prior;
-    posterior.SetPrecisions(precs_post);
-    //cerr << "done priors" << endl;
-}
-
-ColumnVector DCEStdToftsFwdModel::GetConcentrationMeasuredAif(double delay, double Vp, double Ktrans, double Ve) const
+ColumnVector DCEStdToftsFwdModel::GetConcentrationMeasuredAif(double delay, double vp, double ktrans, double kep) const
 {
     ColumnVector myaif = m_aif;
     if (m_infer_delay)
         ColumnVector myaif = aifshift(m_aif, delay);
     ColumnVector f(data.Nrows());
 
-    if (Ve == 0)
-        Ve = 1e-6;
-    double kep = Ktrans / Ve;
-
     for (int t = 0; t < data.Nrows(); t++)
     {
-        double c = Vp * myaif(t + 1);
+        double c = vp * myaif(t + 1);
         // Convolution integral using trapezium rule: I=INTEGRAL{aif(t)*exp(-kep(t-tau)*dt) }
         double I = (myaif(1) * exp(-kep * t * m_dt) + myaif(t + 1)) / 2;
-        //cerr << "t=" << t << ", c=" << c << endl;
         for (int tau = 1; tau < t; tau++)
         {
             I += myaif(tau + 1) * exp(-kep * (t - tau) * m_dt);
-            //cerr << "t=" << t << ", tau=" << tau << ", c=" << c << endl;
         }
-        I = I * Ktrans * m_dt;
+        I = I * ktrans * m_dt;
         f(t + 1) = c + I;
     }
 
@@ -264,13 +183,9 @@ static double orton_f(double t, double a, double mub)
     return ret;
 }
 
-ColumnVector DCEStdToftsFwdModel::GetConcentrationOrton(double Vp, double Ktrans, double Ve) const
+ColumnVector DCEStdToftsFwdModel::GetConcentrationOrton(double vp, double ktrans, double kep) const
 {
     ColumnVector f(data.Nrows());
-
-    if (Ve == 0)
-        Ve = 1e-6;
-    double kep = Ktrans / Ve;
 
     for (int tp = 0; tp < data.Nrows(); tp++)
     {
@@ -285,25 +200,21 @@ ColumnVector DCEStdToftsFwdModel::GetConcentrationOrton(double Vp, double Ktrans
         else if (t <= tb)
         {
             Cp = m_ab * (1 - cos(m_mub * t)) + m_ab * m_ag * orton_f(t, m_mug, m_mub);
-            //LOG << "t<=tb=" << tb << ", Cp=" << Cp << endl;
-            c = Vp * Cp;
-            c += m_ab * m_ag * Ktrans * (orton_f(t, m_mug, m_mub) + (((kep - m_mug) / m_ag) - 1) * orton_f(t, kep, m_mub)) / (kep - m_mug);
-            //cerr << "t=" << t << " : c=" << c << ", Cp=" << Cp << endl;
+            c = vp * Cp;
+            c += m_ab * m_ag * ktrans * (orton_f(t, m_mug, m_mub) + (((kep - m_mug) / m_ag) - 1) * orton_f(t, kep, m_mub)) / (kep - m_mug);
         }
         else
         {
             Cp = m_ab * m_ag * orton_f(tb, m_mug, m_mub) * exp(-m_mug * (t - tb));
-            //LOG << "t>tb=" << tb << ", Cp=" << Cp << endl;
-            c = Vp * Cp;
-            c += m_ab * m_ag * Ktrans * (orton_f(tb, m_mug, m_mub) * exp(-m_mug * (t - tb)) + (((kep - m_mug) / m_ag) - 1) * orton_f(tb, kep, m_mub) * exp(-kep * (t - tb))) / (kep - m_mug);
-            //cerr << "t=" << t << " : c=" << c << ", Cp=" << Cp << endl;
+            c = vp * Cp;
+            c += m_ab * m_ag * ktrans * (orton_f(tb, m_mug, m_mub) * exp(-m_mug * (t - tb)) + (((kep - m_mug) / m_ag) - 1) * orton_f(tb, kep, m_mub) * exp(-kep * (t - tb))) / (kep - m_mug);
         }
-        //cerr << " - t=" << tp << ", " << t << " : c=" << c << endl;
+        
         if (isnan(c) || isinf(c))
         {
-            LOG << Ktrans << ", " << Ve << endl;
-            LOG << "t=" << tp << " (" << t << ") tb=" << tb << ", Cp=" << Cp << ", Vp=" << Vp << ", kep=" << kep << ", mug=" << m_mug << ", ag=" << m_ag << " : c=" << c << endl;
-            LOG << "term 1: " << m_ab * m_ag * Ktrans << endl;
+            LOG << ktrans << ", " << kep << endl;
+            LOG << "t=" << tp << " (" << t << ") tb=" << tb << ", Cp=" << Cp << ", vp=" << vp << ", kep=" << kep << ", mug=" << m_mug << ", ag=" << m_ag << " : c=" << c << endl;
+            LOG << "term 1: " << m_ab * m_ag * ktrans << endl;
             LOG << "term 2: " << orton_f(t, m_mug, m_mub) << endl;
             LOG << "term 3: " << (((kep - m_mug) / m_ag) - 1) << endl;
             LOG << "term 4: " << orton_f(t, kep, m_mub) << endl;
@@ -366,109 +277,78 @@ ColumnVector DCEStdToftsFwdModel::aifshift(const ColumnVector &aif, const double
 double DCEStdToftsFwdModel::SignalFromConcentration(double C, double t10, double m0) const
 {
     double R10 = 1 / t10;
-    //cerr << "R10=" << R10 << endl;
-    //cerr << "Rg=" << m_r1 << endl;
     double R1 = m_r1 * C + R10;
-    //cerr << "R1=" << R1 << endl;
-    double A = exp(-m_TR * R1);
-    //cerr << "A=" << A << endl;
+    double A = exp(-m_tr * R1);
 
-    return m0 * sin(m_FA) * (1 - A) / (1 - cos(m_FA) * A);
+    return m0 * sin(m_fa) * (1 - A) / (1 - cos(m_fa) * A);
 }
 
 double DCEStdToftsFwdModel::ConcentrationFromSignal(double s, double s0, double t10, double hct) const
 {
-    double e10 = exp(-m_TR / t10);
-    double b = (1 - e10) / (1.0 - cos(m_FA) * e10);
+    double e10 = exp(-m_tr / t10);
+    double b = (1 - e10) / (1.0 - cos(m_fa) * e10);
     double sa = s / s0;
-    double v = -log((1 - sa * b) / (1 - sa * b * cos(m_FA)));
-    double r1 = v / m_TR;
+    double v = -log((1 - sa * b) / (1 - sa * b * cos(m_fa)));
+    double r1 = v / m_tr;
     return ((r1 - 1 / t10) / m_r1) / (1 - hct);
 }
 
 void DCEStdToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
-    //cerr << "evaluate" << endl;
-    // Convert values if inferring logs, otherwise check not negative
-    ColumnVector paramcpy = params;
-    for (int i = 0; i < paramcpy.Nrows(); i++)
-    {
-        //cerr << "param " << i << "=" << paramcpy(i+1) << endl;
-        if (m_use_log)
-            paramcpy(i + 1) = exp(params(i + 1));
-        else if (params(i + 1) < 0)
-            paramcpy(i + 1) = 0;
+    // Parameters that are inferred - extract and give sensible names
+    double ktrans = params(1);
+    double kep;
+    if (m_infer_ve) {
+        kep = ktrans / params(2);
+    }
+    else {
+        kep = params(2);        
     }
 
-    // parameters that are inferred - extract and give sensible names
-    double Ktrans = paramcpy(1);
-    double Ve = paramcpy(2);
-    //if (Ve == 0) cerr << "WARNING: Ve=0"<< endl;
+    // Optional parameters to infer
     int p = 2;
-    double Vp = m_vp;
-    double T10 = m_T10;
+    double vp = m_vp;
+    double t10 = m_t10;
     double sig0 = m_sig0;
     double delay = m_delay;
     if (m_infer_vp)
     {
-        Vp = paramcpy(p);
+        vp = params(p);
         p++;
     }
     if (m_infer_t10)
     {
-        T10 = paramcpy(p);
+        t10 = params(p);
         p++;
     }
     if (m_infer_sig0)
     {
-        sig0 = paramcpy(p);
+        sig0 = params(p);
         p++;
     }
     if (m_infer_delay)
     {
-        delay = paramcpy(p);
+        delay = params(p);
         p++;
     }
-
-    //std::cerr << "TR=" << m_TR << ", FA=" << m_FA << ", r1=" << m_r1 << endl;
-    //std::cerr << "Ktrans=" << Ktrans << ", Ve=" << Ve << ", T10=" << T10 << ", sig0=" << sig0 << endl;
 
     ColumnVector C;
     if (m_aif_type == "orton")
     {
-        C = GetConcentrationOrton(Vp, Ktrans, Ve);
+        C = GetConcentrationOrton(vp, ktrans, kep);
     }
     else
     {
-        C = GetConcentrationMeasuredAif(delay, Vp, Ktrans, Ve);
+        C = GetConcentrationMeasuredAif(delay, vp, ktrans, kep);
     }
 
-    //if (Ve == 0) {
-    //    cerr << "Ve=0 - got C" << endl;
-    //    cerr << C.t() << endl;
-    //}
-
-    /*for (int i = 1; i <= C.Nrows(); i++)
-    {
-        if (isnan(C(i)) || isinf(C(i)))
-        {
-            cerr << "Warning NaN or inf in C" << endl;
-            cerr << "result: " << C.t() << endl;
-            cerr << "params: " << params.t() << endl;
-
-            result = 0.0;
-            break;
-        }
-    }*/
-
-    // Convert to the DCE signal
-    double E10 = exp(-m_TR / T10);
-    double m0 = sig0 * (1 - cos(m_FA) * E10) / (sin(m_FA) * (1 - E10));
+    // Convert concentration curve to DCE signal
+    double E10 = exp(-m_tr / t10);
+    double m0 = sig0 * (1 - cos(m_fa) * E10) / (sin(m_fa) * (1 - E10));
     result.ReSize(data.Nrows());
     for (int i = 1; i <= data.Nrows(); i++)
     {
-        result(i) = SignalFromConcentration(C(i), T10, m0);
-        //std::cerr << "t=" << i-1 << ", C=" << C(i) << ", S=" << result(i) << endl;
+        result(i) = SignalFromConcentration(C(i), t10, m0);
     }
 
     for (int i = 1; i <= data.Nrows(); i++)
@@ -478,13 +358,11 @@ void DCEStdToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             LOG << "Warning NaN or inf in result" << endl;
             LOG << "result: " << result.t() << endl;
             LOG << "params: " << params.t() << endl;
-            LOG << "used params: " << paramcpy.t() << endl;
 
             result = 0.0;
             break;
         }
     }
-    //cerr << "done evaluate" << endl;
 }
 
 FwdModel *DCEStdToftsFwdModel::NewInstance()
