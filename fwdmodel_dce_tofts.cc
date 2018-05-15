@@ -141,14 +141,20 @@ void DCEStdToftsFwdModel::GetParameterDefaults(std::vector<Parameter> &params) c
         params.push_back(Parameter(p++, "kep", DistParams(0.02, 1e20), DistParams(0.02, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
     }
 
-    if (m_infer_vp)
-        params.push_back(Parameter(p++, "vp", DistParams(0.01, 100), DistParams(0.01, 100)));
-    if (m_infer_t10)
-        params.push_back(Parameter(p++, "t10", DistParams(m_t10, 1e12), DistParams(m_t10, 10)));
     if (m_infer_sig0)
-        params.push_back(Parameter(p++, "sig0", DistParams(m_sig0, 1e12), DistParams(m_sig0, m_sig0/10)));
+        params.push_back(Parameter(p++, "sig0", DistParams(m_sig0, 1e20), DistParams(m_sig0, m_sig0/10)));
     if (m_infer_delay)
-        params.push_back(Parameter(p++, "delay", DistParams(0, 100), DistParams(100, 100)));
+        params.push_back(Parameter(p++, "delay", DistParams(0, 1e20), DistParams(m_delay, 100)));
+    if (m_infer_vp)
+        params.push_back(Parameter(p++, "vp", DistParams(0.01, 1e20), DistParams(0.01, 100)));
+    if (m_infer_t10)
+        params.push_back(Parameter(p++, "t10", DistParams(m_t10, 1e20), DistParams(m_t10, 10)));
+}
+
+void DCEStdToftsFwdModel::InitVoxelPosterior(MVNDist &posterior) const
+{
+    int sig0_idx = 2;    
+    posterior.means(sig0_idx) = data(0);
 }
 
 ColumnVector DCEStdToftsFwdModel::GetConcentrationMeasuredAif(double delay, double vp, double ktrans, double kep) const
@@ -183,14 +189,14 @@ static double orton_f(double t, double a, double mub)
     return ret;
 }
 
-ColumnVector DCEStdToftsFwdModel::GetConcentrationOrton(double vp, double ktrans, double kep) const
+ColumnVector DCEStdToftsFwdModel::GetConcentrationOrton(double delay, double vp, double ktrans, double kep) const
 {
     ColumnVector f(data.Nrows());
 
     for (int tp = 0; tp < data.Nrows(); tp++)
     {
         double c = 0;
-        double t = tp * m_dt - m_delay;
+        double t = tp * m_dt - delay;
         double tb = 2 * 3.14159265 / m_mub;
         double Cp = 0;
         if (t <= 0)
@@ -306,21 +312,11 @@ void DCEStdToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     }
 
     // Optional parameters to infer
-    int p = 2;
-    double vp = m_vp;
-    double t10 = m_t10;
     double sig0 = m_sig0;
     double delay = m_delay;
-    if (m_infer_vp)
-    {
-        vp = params(p);
-        p++;
-    }
-    if (m_infer_t10)
-    {
-        t10 = params(p);
-        p++;
-    }
+    double vp = m_vp;
+    double t10 = m_t10;
+    int p = 2;
     if (m_infer_sig0)
     {
         sig0 = params(p);
@@ -331,11 +327,21 @@ void DCEStdToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         delay = params(p);
         p++;
     }
+    if (m_infer_vp)
+    {
+        vp = params(p);
+        p++;
+    }
+    if (m_infer_t10)
+    {
+        t10 = params(p);
+        p++;
+    }
 
     ColumnVector C;
     if (m_aif_type == "orton")
     {
-        C = GetConcentrationOrton(vp, ktrans, kep);
+        C = GetConcentrationOrton(delay, vp, ktrans, kep);
     }
     else
     {

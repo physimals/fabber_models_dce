@@ -32,6 +32,7 @@ public:
 
     virtual void Initialize(FabberRunData &rundata);
     void GetParameterDefaults(std::vector<Parameter> &params) const;
+    void InitVoxelPosterior(MVNDist &posterior) const;
 
     virtual void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
 
@@ -56,7 +57,7 @@ private:
     double ConcentrationFromSignal(double s, double s0, double t10, double hct) const;
     NEWMAT::ColumnVector GetConcentrationMeasuredAif(double delay, double Vp, double Ktrans, double Kep) const;
     NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const double delay) const;
-    NEWMAT::ColumnVector GetConcentrationOrton(double Vp, double Ktrans, double Ve) const;
+    NEWMAT::ColumnVector GetConcentrationOrton(double delay, double Vp, double Ktrans, double Ve) const;
 
     /** Auto-register with forward model factory. */
     static FactoryRegistration<FwdModelFactory, DCEStdToftsFwdModel> registration;
