@@ -29,15 +29,16 @@ static OptionSpec OPTIONS[] = {
     { "tr", OPT_FLOAT, "Repetition time (TR) In seconds.", OPT_REQ, "" },
     { "r1", OPT_FLOAT, "Relaxivity of contrast agent, In s^-1 mM^-1.", OPT_REQ, "" },
     { "aif", OPT_STR, "Source of AIF function: orton=Orton (2008) population AIF, signal=User-supplied vascular signal, conc=User-supplied concentration curve", OPT_REQ, "none" },
-    { "sig0", OPT_FLOAT, "Baseline signal. May be inferred.", OPT_NONREQ, "1000" },
+    { "sig0", OPT_FLOAT, "Baseline signal. This value is ignored if sig0 is inferred.", OPT_NONREQ, "1" },
     { "t10", OPT_FLOAT, "Baseline T1 value in seconds. May be inferred.", OPT_NONREQ, "1" },
-    { "delay", OPT_FLOAT, "Delay time offset relative to AIF in minutes. May be inferred.", OPT_NONREQ, "0" },
+    { "delay", OPT_FLOAT, "Injection time (or delay time when using measured AIF) in minutes. May be inferred.", OPT_NONREQ, "0" },
     { "vp", OPT_FLOAT, "Fractional volume of blood plasma (Vp) in tissue", OPT_NONREQ, "0" },
     { "infer-vp", OPT_BOOL, "Infer the Vp parameter", OPT_NONREQ, "" },
     { "infer-delay", OPT_BOOL, "Infer the delay parameter", OPT_NONREQ, "" },
     { "infer-ve", OPT_BOOL, "Infer Ve rather than kep. Normally inferring kep is more numerically stable.", OPT_NONREQ, "" },
     { "infer-sig0", OPT_BOOL, "Infer baseline signal", OPT_NONREQ, "" },
     { "infer-t10", OPT_BOOL, "Infer t10 value", OPT_NONREQ, "" },
+    { "auto-init-delay", OPT_BOOL, "Automatically initialize posterior value of delay parameter", OPT_NONREQ, "" },
     { "aif-file", OPT_FILE,
         "File containing single-column ASCII data defining the AIF. For aif=signal, this is the vascular signal curve. For aif=conc, it should be the blood plasma concentration curve",
         OPT_NONREQ, "none" },
@@ -110,7 +111,7 @@ void DCEStdToftsFwdModel::Initialize(FabberRunData &rundata)
     // Additional model parameters. All of these can be inferred if required
     m_vp = rundata.GetDoubleDefault("vp", 0);
     m_t10 = rundata.GetDoubleDefault("t10", 1);
-    m_sig0 = rundata.GetDoubleDefault("sig0", 1000);
+    m_sig0 = rundata.GetDoubleDefault("sig0", 1);
     m_delay = rundata.GetDoubleDefault("delay", 0);
     m_infer_vp = rundata.ReadBool("infer-vp");
     m_infer_t10 = rundata.ReadBool("infer-t10");
@@ -119,6 +120,9 @@ void DCEStdToftsFwdModel::Initialize(FabberRunData &rundata)
 
     // Infer Ve rather than kep. kep is generally a bit more stable
     m_infer_ve = rundata.ReadBool("infer-ve");
+
+    // Automatically initialise delay posterior
+    m_auto_init_delay = rundata.ReadBool("auto-init-delay");
 }
 
 std::string DCEStdToftsFwdModel::GetDescription() const
@@ -131,30 +135,63 @@ void DCEStdToftsFwdModel::GetParameterDefaults(std::vector<Parameter> &params) c
     params.clear();
 
     int p=0;
-    params.push_back(Parameter(p++, "ktrans", DistParams(0.02, 1e20), DistParams(0.02, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
+    params.push_back(Parameter(p++, "ktrans", DistParams(0.5, 1), DistParams(0.5, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
     
     if (m_infer_ve) {
-        // VE has a tendancy to go negative - an 'absolute value' transform seems to help
-        params.push_back(Parameter(p++, "ve", DistParams(0.02, 1e20), DistParams(0.02, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
+        params.push_back(Parameter(p++, "ve", DistParams(0.5, 1), DistParams(0.5, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     }
     else {
-        params.push_back(Parameter(p++, "kep", DistParams(0.02, 1e20), DistParams(0.02, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
+        params.push_back(Parameter(p++, "kep", DistParams(0.5, 1), DistParams(1, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
     }
 
     if (m_infer_sig0)
-        params.push_back(Parameter(p++, "sig0", DistParams(m_sig0, 1e20), DistParams(m_sig0, m_sig0/10)));
+        params.push_back(Parameter(p++, "sig0", DistParams(1, 1e20), DistParams(1, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
     if (m_infer_delay)
-        params.push_back(Parameter(p++, "delay", DistParams(0, 1e20), DistParams(m_delay, 100)));
+        params.push_back(Parameter(p++, "delay", DistParams(m_delay, 1), DistParams(m_delay, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
     if (m_infer_vp)
-        params.push_back(Parameter(p++, "vp", DistParams(0.01, 1e20), DistParams(0.01, 100)));
+        params.push_back(Parameter(p++, "vp", DistParams(0.05, 1), DistParams(0.05, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     if (m_infer_t10)
-        params.push_back(Parameter(p++, "t10", DistParams(m_t10, 1e20), DistParams(m_t10, 10)));
+        params.push_back(Parameter(p++, "t10", DistParams(m_t10, 1), DistParams(m_t10, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
+}
+
+static int fit_step(const ColumnVector &data)
+{
+    // MSC method - fit a step function
+    double best_ssq = -1;
+    int step_pos = 0;
+    for (int pos=1; pos<data.Nrows(); pos++) {
+        double mean_left = data.Rows(1, pos).Sum() / pos;
+        //cerr << "left=" << data_mean.Rows(1, ti).t() << " sum=" << data_mean.Rows(1, ti).Sum() << endl;
+        double mean_right = data.Rows(pos+1, data.Nrows()).Sum() / (data.Nrows() - pos);
+        //cerr << "right=" << data_mean.Rows(ti+1, data_mean.Nrows()).t() << " sum=" << data_mean.Rows(ti+1, data_mean.Nrows()).Sum() << endl;
+        //cerr << "TI: " << ti << " (" << tis(ti) << ") mean left=" << mean_left << ", mean right=" << mean_right << endl;
+        double ssq = 0;
+        for (int t=1; t<=pos; t++) {
+            ssq += (data(t) - mean_left)*(data(t) - mean_left);
+        }
+        for (int t=pos+1; t<=data.Nrows(); t++) {
+            ssq += (data(t) - mean_right)*(data(t) - mean_right);
+        }
+        //cerr << "SSQ=" << ssq << " (best=" << best_ssq << ")" << endl;
+        if ((ssq < best_ssq) || (best_ssq < 0)) {
+            best_ssq = ssq;
+            step_pos = pos;
+        }
+    }
+
+    return step_pos-1;
 }
 
 void DCEStdToftsFwdModel::InitVoxelPosterior(MVNDist &posterior) const
 {
-    int sig0_idx = 2;    
-    posterior.means(sig0_idx) = data(0);
+    int sig0_idx = 3, delay_idx=3;
+    if (m_infer_sig0) {
+        posterior.means(sig0_idx) = data(1);
+        delay_idx++;
+    }
+    if (m_infer_delay && m_auto_init_delay) {
+        posterior.means(delay_idx) = m_dt * fit_step(data);
+    }
 }
 
 ColumnVector DCEStdToftsFwdModel::GetConcentrationMeasuredAif(double delay, double vp, double ktrans, double kep) const
@@ -244,7 +281,7 @@ ColumnVector DCEStdToftsFwdModel::aifshift(const ColumnVector &aif, const double
     // NB Makes assumptions where extrapolation is called for.
 
     // Number of whole time points of shift.
-    int nshift = floor(delay / m_dt);
+    int nshift = int(floor(delay / m_dt));
     // Fractional part of the shift
     double fshift = (delay / m_dt) - nshift;
 
@@ -316,26 +353,22 @@ void DCEStdToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     double delay = m_delay;
     double vp = m_vp;
     double t10 = m_t10;
-    int p = 2;
+    int p = 3;
     if (m_infer_sig0)
     {
-        sig0 = params(p);
-        p++;
+        sig0 = params(p++);
     }
     if (m_infer_delay)
     {
-        delay = params(p);
-        p++;
+        delay = params(p++);
     }
     if (m_infer_vp)
     {
-        vp = params(p);
-        p++;
+        vp = params(p++);
     }
     if (m_infer_t10)
     {
-        t10 = params(p);
-        p++;
+        t10 = params(p++);
     }
 
     ColumnVector C;

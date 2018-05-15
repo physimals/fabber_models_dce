@@ -50,6 +50,9 @@ private:
     // Inference flags
     bool m_infer_vp, m_infer_delay, m_infer_t10, m_infer_sig0, m_infer_ve;
 
+    // Other options
+    bool m_auto_init_delay;
+
     // AIF as concentration curve
     NEWMAT::ColumnVector m_aif;
 
