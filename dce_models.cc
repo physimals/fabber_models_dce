@@ -21,6 +21,7 @@ Copyright (C) 2010-2011 University of Oxford */
 #include "fwdmodel_dce_LLS.h"
 #include "fwdmodel_dce_Patlak.h"
 #include "fwdmodel_dce_tofts.h"
+#include "fwdmodel_dce_2cxm_nlls.h"
 
 #include "dce_models.h"
 
@@ -67,6 +68,9 @@ const char *CALL get_model_name(int index)
         break;
     case 10:
         return "dce_tofts";
+        break;
+    case 11:
+        return "dce_2cxm_nlls";
         break;
     default:
         return NULL;
@@ -118,6 +122,10 @@ NewInstanceFptr CALL get_new_instance_func(const char *name)
     else if (string(name) == "dce_tofts")
     {
         return DCEStdToftsFwdModel::NewInstance;
+    }
+    else if (string(name) == "dce_tofts")
+    {
+        return DCE2CXMNLLSFwdModel::NewInstance;
     }
     else
     {
