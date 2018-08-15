@@ -21,7 +21,7 @@ Copyright (C) 2010-2011 University of Oxford */
 #include "fwdmodel_dce_LLS.h"
 #include "fwdmodel_dce_Patlak.h"
 #include "fwdmodel_dce_tofts.h"
-#include "fwdmodel_dce_2cxm_nlls.h"
+#include "fwdmodel_dce_2CXM_NLLS.h"
 
 #include "dce_models.h"
 
