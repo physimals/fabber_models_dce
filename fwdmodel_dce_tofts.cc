@@ -255,6 +255,53 @@ ColumnVector DCEStdToftsFwdModel::GetConcentrationMeasuredAif(double delay, doub
     return f;
 }
 
+// Implementation of extended Tofts model
+// Equation 3 of this paper
+// https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.22861
+ColumnVector DCEStdToftsFwdModel::compute_tofts_model_measured_aif(double delay, double Vp, double Ktrans, double Ve) const
+{
+
+    // Check whether we need to shift AIF
+    ColumnVector current_aif = m_aif;
+    if (m_infer_delay) {
+        ColumnVector current_aif = aifshift(m_aif, delay);
+    }
+
+    ColumnVector concentration_EES(data.Nrows()); // Concentration of extracecullar space (Ce convolution Ve)
+    ColumnVector concentration_plasma(data.Nrows()); // Concentration of plasma space (Cp * Vp)
+    ColumnVector concentration_tissue(data.Nrows()); // Observed concentratino of the whole tissue
+    
+    double kep = Ktrans / Ve;
+    ColumnVector exp_term_vector(data.Nrows());
+
+
+    for (int t_index = 0; t_index < data.Nrows(); t_index++) {
+        double current_t_value = t_index * m_dt - delay;
+        exp_term_vector(t_index + 1) = exp(-current_t_value * kep);
+        concentration_EES(t_index + 1) = 0.0;  // Initialize for convolution use
+    }
+
+    for (int t_index = 0; t_index < data.Nrows(); t_index++) {
+        // Do convolution. We only need the first Nrows() terms
+        // https://stackoverflow.com/questions/24518989/how-to-perform-1-dimensional-valid-convolution
+        int jmn = (t_index >= data.Nrows() - 1)? t_index - (data.Nrows() - 1) : 0;
+        int jmx = (t_index <  data.Nrows() - 1)? t_index                      : data.Nrows() - 1;
+        for (int j = jmn; j <= jmx; j++) {
+            concentration_EES(t_index + 1) += (exp_term_vector(j + 1) * current_aif(t_index - j + 1));
+        }
+        // Now we need to mutiply by Ktrans to get the EES concentration
+        concentration_EES(t_index + 1) = Ktrans * concentration_EES(t_index + 1);
+
+        // Plasma term
+        concentration_plasma(t_index + 1) = Vp * current_aif(t_index + 1);
+
+        // Observed concentration
+        concentration_tissue(t_index + 1) = concentration_plasma(t_index + 1) + concentration_EES(t_index + 1);
+    }
+
+    return concentration_tissue;
+}
+
 static double orton_f(double t, double a, double mub)
 {
     if (a == 0)
@@ -410,7 +457,7 @@ void DCEStdToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     double Ktrans = paramcpy(1);
     double Ve = paramcpy(2);
     //if (Ve == 0) cerr << "WARNING: Ve=0"<< endl;
-    int p = 2;
+    int p = 3;
     double Vp = m_vp;
     double T10 = m_T10;
     double sig0 = m_sig0;
@@ -446,7 +493,8 @@ void DCEStdToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     }
     else
     {
-        C = GetConcentrationMeasuredAif(delay, Vp, Ktrans, Ve);
+        //C = GetConcentrationMeasuredAif(delay, Vp, Ktrans, Ve);
+        C = compute_tofts_model_measured_aif(delay, Vp, Ktrans, Ve);
     }
 
     //if (Ve == 0) {
@@ -490,6 +538,13 @@ void DCEStdToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             break;
         }
     }
+        /*
+        cout << paramcpy.t() << endl;
+        cout << "conc: " << C.t() << endl;
+        cout << "result: " << result.t() << endl;
+        cout << "data: " << data.t() << endl;
+        getchar();
+        */
     //cerr << "done evaluate" << endl;
 }
 

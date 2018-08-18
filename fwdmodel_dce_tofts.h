@@ -73,6 +73,7 @@ private:
 
     double LogOrNot(double p) const;
     NEWMAT::ColumnVector GetConcentrationMeasuredAif(double delay, double Vp, double Ktrans, double Kep) const;
+    NEWMAT::ColumnVector compute_tofts_model_measured_aif(double delay, double Vp, double Ktrans, double Ve) const;
     NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const double delay) const;
     NEWMAT::ColumnVector GetConcentrationOrton(double Vp, double Ktrans, double Ve) const;
 
