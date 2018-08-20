@@ -31,21 +31,16 @@ static OptionSpec OPTIONS[] = {
     { "sig0", OPT_FLOAT, "Baseline signal. May be inferred.", OPT_NONREQ, "1000" },
     { "t10", OPT_FLOAT, "Baseline T1 value in seconds. May be inferred.", OPT_NONREQ, "1" },
     { "delay", OPT_FLOAT, "Delay time offset relative to AIF in minutes. May be inferred.", OPT_NONREQ, "0" },
-    //{ "vp", OPT_FLOAT, "Fractional volume of blood plasma (Vp) in tissue", OPT_NONREQ, "0" },
-    //{ "infer-vp", OPT_BOOL, "Infer the Vp parameter", OPT_NONREQ, "" },
     { "infer-delay", OPT_BOOL, "Infer the delay parameter", OPT_NONREQ, "" },
     { "infer-sig0", OPT_BOOL, "Infer baseline signal", OPT_NONREQ, "" },
     { "infer-T10", OPT_BOOL, "Infer T10 value", OPT_NONREQ, "" },
+    { "convolution-method", OPT_STR, "Method to compute convolution, normal or iterative. Default is iterative", OPT_REQ, "" },
     { "use-log-params", OPT_BOOL, "Infer log values of parameters", OPT_NONREQ, "" },
     { "aif-file", OPT_FILE,
         "File containing single-column ASCII data defining the AIF. For aif=signal, this is the vascular signal curve. For aif=conc, it should be the blood plasma concentration curve",
         OPT_NONREQ, "none" },
     { "aif-hct", OPT_FLOAT, "Haematocrit value to use when converting an AIF signal to concentration. Used when aif=signal", OPT_NONREQ, "0.45" },
     { "aif-t1b", OPT_FLOAT, "Blood T1 value to use when converting an AIF signal to concentration. Used when aif=signal", OPT_NONREQ, "1.4" },
-    //{ "aif-ab", OPT_FLOAT, "aB parameter for Orton AIF in mM. Used when aif=orton", OPT_NONREQ, "2.84" },
-    //{ "aif-ag", OPT_FLOAT, "aG parameter for Orton AIF in min^-1. Used when aif=orton", OPT_NONREQ, "1.36" },
-    //{ "aif-mub", OPT_FLOAT, "MuB parameter for Orton AIF in min^-1. Used when aif=orton", OPT_NONREQ, "22.8" },
-    //{ "aif-mug", OPT_FLOAT, "MuG parameter for Orton AIF in min^-1. Used when aif=orton", OPT_NONREQ, "0.171" },
     { "" },
 };
 
@@ -103,17 +98,6 @@ void DCE2CXMNLLSFwdModel::Initialize(FabberRunData &args)
         m_aif = read_ascii_matrix(args.GetString("aif-file"));
     }
 
-    // Population average AIF
-    // Model 3 of http://iopscience.iop.org/article/10.1088/0031-9155/53/5/005/meta
-    /*
-    else if (m_aif_type == "orton")
-    {
-        m_ab = args.GetDoubleDefault("aif-ab", 2.84);
-        m_ag = args.GetDoubleDefault("aif-ag", 1.36);
-        m_mub = args.GetDoubleDefault("aif-mub", 22.8);
-        m_mug = args.GetDoubleDefault("aif-mug", 0.171);
-    }
-    */
     else
     {
         throw InvalidOptionValue("aif", m_aif_type, "Must be signal, conc or orton");
@@ -128,7 +112,7 @@ void DCE2CXMNLLSFwdModel::Initialize(FabberRunData &args)
     m_infer_t10 = args.ReadBool("infer-t10");
     m_infer_sig0 = args.ReadBool("infer-sig0");
     m_infer_delay = args.ReadBool("infer-delay");
-
+    m_conv_method = args.GetStringDefault("convolution-method", "iterative");
     m_use_log = args.ReadBool("use-log-params");
     //cerr << "Done Init" << endl;
 }
@@ -211,7 +195,7 @@ void DCE2CXMNLLSFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
     if (m_infer_t10)
     {
         prior.means(p) = LogOrNot(m_T10);
-        precs_prior(p, p) = 1e-12;
+        precs_prior(p, p) = 1;
         precs_post(p, p) = 0.1;
         p++;
     }
@@ -243,120 +227,7 @@ void DCE2CXMNLLSFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
     //cerr << "done priors" << endl;
 }
 
-// This is the implementation of Tofts model using trapezium to compute the integral
-// Needs checking
-/*
-ColumnVector DCE2CXMNLLSFwdModel::GetConcentrationMeasuredAif(double delay, double Vp, double Ktrans, double Ve) const
-{
-    ColumnVector myaif = m_aif;
-    if (m_infer_delay)
-        ColumnVector myaif = aifshift(m_aif, delay);
-    ColumnVector f(data.Nrows());
 
-    if (Ve == 0)
-        Ve = 1e-6;
-    double kep = Ktrans / Ve;
-
-    for (int t = 0; t < data.Nrows(); t++)
-    {
-        double c = Vp * myaif(t + 1);
-        // Convolution integral using trapezium rule: I=INTEGRAL{aif(t)*exp(-kep(t-tau)*dt) }
-        double I = (myaif(1) * exp(-kep * t * m_dt) + myaif(t + 1)) / 2;
-        //cerr << "t=" << t << ", c=" << c << endl;
-        for (int tau = 1; tau < t; tau++)
-        {
-            I += myaif(tau + 1) * exp(-kep * (t - tau) * m_dt);
-            //cerr << "t=" << t << ", tau=" << tau << ", c=" << c << endl;
-        }
-        I = I * Ktrans * m_dt;
-        // Done convolution integral
-        // f(t + 1) is the concentration
-        f(t + 1) = c + I;
-    }
-
-    return f;
-}
-*/
-// Need checking
-/*
-static double orton_f(double t, double a, double mub)
-{
-    if (a == 0)
-        return 0;
-
-    double ret = ((1 - exp(-a * t)) / a) - (a * cos(mub * t) + mub * sin(mub * t) - a * exp(-a * t)) / (a * a + mub * mub);
-    return ret;
-}
-*/
-/* Reference for this technique:
-Orton, 2008
-Computationally efficient vascular input function models for quantitative kinetic modelling using DCE-MRI
-http://iopscience.iop.org/article/10.1088/0031-9155/53/5/005/meta
-*/
-// This is an implementation of Model 3 of Orton's paper
-// Needs checking
-/*
-ColumnVector DCE2CXMNLLSFwdModel::GetConcentrationOrton(double Vp, double Ktrans, double Ve) const
-{
-    ColumnVector f(data.Nrows());
-
-    if (Ve == 0)
-        Ve = 1e-6;
-    double kep = Ktrans / Ve;
-
-    for (int tp = 0; tp < data.Nrows(); tp++)
-    {
-        double c = 0;
-        double t = tp * m_dt - m_delay;
-        double tb = 2 * 3.14159265 / m_mub;
-        double Cp = 0;
-        if (t <= 0)
-        {
-            c = 0;
-        }
-        else if (t <= tb)
-        {   
-            // First compute the AIF
-            Cp = m_ab * (1 - cos(m_mub * t)) + m_ab * m_ag * orton_f(t, m_mug, m_mub); // Equation (4) of Orton's paper
-            //LOG << "t<=tb=" << tb << ", Cp=" << Cp << endl;
-            // Then compute the tissue concentration
-            c = Vp * Cp;
-            c += m_ab * m_ag * Ktrans * (orton_f(t, m_mug, m_mub) + (((kep - m_mug) / m_ag) - 1) * orton_f(t, kep, m_mub)) / (kep - m_mug); // Equation (A1) of Orton's paper
-            //cerr << "t=" << t << " : c=" << c << ", Cp=" << Cp << endl;
-        }
-        else
-        {
-            // First compute the AIF
-            Cp = m_ab * m_ag * orton_f(tb, m_mug, m_mub) * exp(-m_mug * (t - tb)); // Equation (4) of Orton's paper
-            //LOG << "t>tb=" << tb << ", Cp=" << Cp << endl;
-            // Then compute the tissue concentration
-            c = Vp * Cp;
-            c += m_ab * m_ag * Ktrans * (orton_f(tb, m_mug, m_mub) * exp(-m_mug * (t - tb)) + (((kep - m_mug) / m_ag) - 1) * orton_f(tb, kep, m_mub) * exp(-kep * (t - tb))) / (kep - m_mug); // Equation (A3) of Orton's paper
-            //cerr << "t=" << t << " : c=" << c << ", Cp=" << Cp << endl;
-        }
-        //cerr << " - t=" << tp << ", " << t << " : c=" << c << endl;
-        if (isnan(c) || isinf(c))
-        {
-            LOG << Ktrans << ", " << Ve << endl;
-            LOG << "t=" << tp << " (" << t << ") tb=" << tb << ", Cp=" << Cp << ", Vp=" << Vp << ", kep=" << kep << ", mug=" << m_mug << ", ag=" << m_ag << " : c=" << c << endl;
-            LOG << "term 1: " << m_ab * m_ag * Ktrans << endl;
-            LOG << "term 2: " << orton_f(t, m_mug, m_mub) << endl;
-            LOG << "term 3: " << (((kep - m_mug) / m_ag) - 1) << endl;
-            LOG << "term 4: " << orton_f(t, kep, m_mub) << endl;
-            LOG << "term 4.1: " << exp(-kep * t) << endl;
-            LOG << "term 4.1: " << ((1 - exp(-kep * t)) / kep) << endl;
-            LOG << "term 4.2: " << kep * cos(m_mub * t) << endl;
-            LOG << "term 4.3: " << m_mub * sin(m_mub * t) << endl;
-            LOG << "term 4.4: " << kep * exp(-kep * t) << endl;
-            LOG << "term 4.5: " << (kep * kep + m_mub * m_mub) << endl;
-        }
-
-        f(tp + 1) = c;
-    }
-
-    return f;
-}
-*/
 ColumnVector DCE2CXMNLLSFwdModel::aifshift(const ColumnVector &aif, const double delay) const
 {
     // Shift a vector in time by interpolation (linear)
@@ -401,17 +272,13 @@ ColumnVector DCE2CXMNLLSFwdModel::aifshift(const ColumnVector &aif, const double
 
 // This is the MR signal of spoiled gradient echo sequence
 // Needs checking
-double DCE2CXMNLLSFwdModel::SignalFromConcentration(double C, double t10, double m0) const
+double DCE2CXMNLLSFwdModel::SignalFromConcentration(double C, double t10, double current_sig0) const
 {
     double R10 = 1 / t10;
-    //cerr << "R10=" << R10 << endl;
-    //cerr << "Rg=" << m_r1 << endl;
     double R1 = m_r1 * C + R10;
-    //cerr << "R1=" << R1 << endl;
     double A = exp(-m_TR * R1);
-    //cerr << "A=" << A << endl;
 
-    return m0 * sin(m_FA) * (1 - A) / (1 - cos(m_FA) * A);
+    return current_sig0 * sin(m_FA) * (1 - A) / (1 - cos(m_FA) * A);
 }
 
 // Appendix A in https://www.sciencedirect.com/science/article/pii/S0730725X10001748
@@ -427,7 +294,7 @@ double DCE2CXMNLLSFwdModel::ConcentrationFromSignal(double s, double s0, double 
     return ((r1 - 1 / t10) / m_r1) / (1 - hct);
 }
 
-ColumnVector DCE2CXMNLLSFwdModel::compute_concentration_convolution(const double Fp, const double PS, const double Vp, const double Ve, const NEWMAT::ColumnVector &aif) const
+ColumnVector DCE2CXMNLLSFwdModel::compute_concentration(const double Fp, const double PS, const double Vp, const double Ve, const NEWMAT::ColumnVector &aif) const
 {
     // Equation 1 of the paper
     double Tp = Vp / Fp;
@@ -441,28 +308,97 @@ ColumnVector DCE2CXMNLLSFwdModel::compute_concentration_convolution(const double
     // Result concentration
     ColumnVector current_concentration(data.Nrows());
 
-    // Bracket term in Equatino 7
-    ColumnVector bracket_term(data.Nrows());
+    if(m_conv_method == "normal") {
+        // Compute convolution using normal technique
+        ColumnVector convolution_result(data.Nrows());
 
-    for (int t_index = 0; t_index < data.Nrows(); t_index++) {
-        double current_t_value = t_index * m_dt;
-        bracket_term(t_index + 1) = (T - T_minus) * (exp((-1) * current_t_value / T_plus)) / (T_plus - T_minus) + (T_plus - T) * (exp((-1) * current_t_value / T_minus)) / (T_plus - T_minus);
+        // Bracket term in Equation 7
+        ColumnVector bracket_term(data.Nrows());
+
+        for (int t_index = 0; t_index < data.Nrows(); t_index++) {
+            double current_t_value = t_index * m_dt - m_delay;
+            bracket_term(t_index + 1) = (T - T_minus) * (exp((-1) * current_t_value / T_plus)) / (T_plus - T_minus) + (T_plus - T) * (exp((-1) * current_t_value / T_minus)) / (T_plus - T_minus);
+            current_concentration(t_index + 1) = 0.0; // Initialize the concentration result vector. It seems that C++ likes this. :O
+        }
+
+        // Do convolution. 
+        convolution_result = compute_convolution_normal(aif, bracket_term);
+        // Compute concentration
+        current_concentration = Fp * convolution_result;
     }
 
-    // Do convolution. We only need the first Nrows() terms
-    // https://stackoverflow.com/questions/24518989/how-to-perform-1-dimensional-valid-convolution
-    for (int t_index = 0; t_index < data.Nrows(); t_index++) {
-        int jmn = (t_index >= data.Nrows() - 1)? t_index - (data.Nrows() - 1) : 0;
-        int jmx = (t_index <  data.Nrows() - 1)? t_index                      : data.Nrows() - 1;
-        for (int j = jmn; j <= jmx; j++) {
-            current_concentration(t_index + 1) += (bracket_term(j) * aif(t_index - j));
-        }
-        // Now we need to mutiply by Fp (Equation 7)
-        current_concentration(t_index + 1) = Fp * current_concentration(t_index + 1);
+    if(m_conv_method == "iterative") {
+        // Compute convolution using iterative technique 
+        // We use the method in the appendix of this paper to compute the convolution
+        //Some properties of convolution. X represents convolution operation
+        //f X g = g X f
+        //a * (f X g) = (a * f X g)
+        //(f + h) X g = f X g + h X g
+        //We need to rearrange the terms in Equation 7 using these properties
+        ColumnVector sum_1(data.Nrows());
+        ColumnVector sum_2(data.Nrows());
+        sum_1 = T_plus * (T - T_minus) * compute_convolution_iterative(aif, T_plus) / (T_plus - T_minus);
+        sum_2 = T_minus * (T_plus - T) * compute_convolution_iterative(aif, T_minus) / (T_plus - T_minus);
+
+        // Compute concentration
+        current_concentration = Fp * (sum_1 + sum_2);
     }
 
     return current_concentration;
 }
+
+// Compute convolution using normal method
+// Assuming that the two input vectors have the same length
+// https://stackoverflow.com/questions/24518989/how-to-perform-1-dimensional-valid-convolution
+ColumnVector DCE2CXMNLLSFwdModel::compute_convolution_normal(const NEWMAT::ColumnVector &term_1, const NEWMAT::ColumnVector &term_2) const
+{
+    // We only need the first Nrows() terms
+    ColumnVector convolution_result(term_1.Nrows());
+
+    for (int t_index = 0; t_index < term_1.Nrows(); t_index++) {
+        convolution_result(t_index + 1) = 0;
+        int jmn = (t_index >= term_1.Nrows() - 1)? t_index - (term_1.Nrows() - 1) : 0;
+        int jmx = (t_index <  term_1.Nrows() - 1)? t_index                      : term_1.Nrows() - 1;
+        for (int j = jmn; j <= jmx; j++) {
+            convolution_result(t_index + 1) += (term_1(j + 1) * term_2(t_index - j + 1));
+        }
+    }
+    return convolution_result;
+}
+
+// Implementation of appendix of the paper
+ColumnVector DCE2CXMNLLSFwdModel::compute_convolution_iterative(const NEWMAT::ColumnVector &aif, const double T_term) const
+{
+    int nhtpts = aif.Nrows();
+    ColumnVector f_vector(nhtpts);
+
+    if(T_term == 0) {
+        f_vector = aif;
+    }
+    else {
+        ColumnVector E0_vector(nhtpts - 1);
+        ColumnVector E1_vector(nhtpts - 1);
+        ColumnVector xi_vector(nhtpts - 1);
+        ColumnVector aif_prime_vector(nhtpts - 1);
+
+        for (int i = 2; i <= nhtpts; i++) {
+            xi_vector(i - 1) = m_dt / T_term; // Because in the equation (A5) t_i+1 - t_i is always m_dt
+            aif_prime_vector(i - 1) = (aif(i) - aif(i - 1)) / m_dt;
+            E0_vector(i - 1) = 1 - exp(-xi_vector(i - 1));
+            E1_vector(i - 1) = xi_vector(i - 1) - E0_vector(i - 1);
+        }
+
+        f_vector(1) = 0.0;
+
+        for (int i = 2; i <= nhtpts; i++) {
+            f_vector(i) = exp(-xi_vector(i - 1)) * f_vector(i - 1) + aif(i - 1) * E0_vector(i - 1) + aif_prime_vector(i - 1) * T_term * E1_vector(i - 1);
+        }
+
+    }
+
+    return f_vector;
+}
+
 
 void DCE2CXMNLLSFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
@@ -515,9 +451,6 @@ void DCE2CXMNLLSFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         p++;
     }
 
-    //std::cerr << "TR=" << m_TR << ", FA=" << m_FA << ", r1=" << m_r1 << endl;
-    //std::cerr << "Ktrans=" << Ktrans << ", Ve=" << Ve << ", T10=" << T10 << ", sig0=" << sig0 << endl;
-
     //ColumnVector C;
     ColumnVector concentration_tissue; // Tissue concentration results
 
@@ -527,48 +460,25 @@ void DCE2CXMNLLSFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         ColumnVector aif_current = aifshift(m_aif, delay);
     }
 
-    // Case where we use the population average AIF
-    /*
-    if (m_aif_type == "orton")
-    {
-        C = GetConcentrationOrton(Vp, Ktrans, Ve);
-    }
-    // Case where user provides AIF
-    else
-    {
-        C = GetConcentrationMeasuredAif(delay, Vp, Ktrans, Ve);
-    }
-    */
+    concentration_tissue = compute_concentration(Fp, PS, Vp, Ve, aif_current);
 
-    concentration_tissue = compute_concentration_convolution(Fp, PS, Vp, Ve, aif_current);
 
-    //if (Ve == 0) {
-    //    cerr << "Ve=0 - got C" << endl;
-    //    cerr << C.t() << endl;
-    //}
-
-    /*for (int i = 1; i <= C.Nrows(); i++)
+    for (int i = 1; i <= concentration_tissue.Nrows(); i++)
     {
-        if (isnan(C(i)) || isinf(C(i)))
+        if (isnan(concentration_tissue(i)) || isinf(concentration_tissue(i)))
         {
-            cerr << "Warning NaN or inf in C" << endl;
-            cerr << "result: " << C.t() << endl;
+            cerr << "Warning NaN or inf in concentration_tissue" << endl;
+            cerr << "result: " << concentration_tissue.t() << endl;
             cerr << "params: " << params.t() << endl;
-
-            result = 0.0;
             break;
         }
-    }*/
+    }
 
-    // Convert to the DCE signal
-    double E10 = exp(-m_TR / T10);
-    double m0 = sig0 * (1 - cos(m_FA) * E10) / (sin(m_FA) * (1 - E10));
     result.ReSize(data.Nrows());
     // Converts concentration back to MRI signal
     for (int i = 1; i <= data.Nrows(); i++)
-    {
-        result(i) = SignalFromConcentration(concentration_tissue(i), T10, m0);
-        //std::cerr << "t=" << i-1 << ", C=" << C(i) << ", S=" << result(i) << endl;
+    {   
+        result(i) = SignalFromConcentration(concentration_tissue(i), T10, sig0);
     }
 
     for (int i = 1; i <= data.Nrows(); i++)
@@ -581,10 +491,11 @@ void DCE2CXMNLLSFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             LOG << "used params: " << paramcpy.t() << endl;
 
             result = 0.0;
+            //getchar();
             break;
+
         }
     }
-    //cerr << "done evaluate" << endl;
 }
 
 FwdModel *DCE2CXMNLLSFwdModel::NewInstance()

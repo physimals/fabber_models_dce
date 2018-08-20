@@ -1,8 +1,10 @@
-/*  fwdmodel_dce.h -Implements a convolution based model for DCE analysis
+/*  fwdmodel_dce_2CXM_NLLS.cc - Implementation of the non-linear least square solution of the two compartment exchange model
 
- Jesper Kallehauge, IBME
+https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.25991
 
- Copyright (C) 2016 University of Oxford  */
+ Moss Zhao - IBME, Oxford
+
+ Copyright (C) 2018 University of Oxford  */
 
 /*  CCOPYRIGHT */
 #pragma once
@@ -48,7 +50,7 @@ public:
 
     //virtual bool Gradient(const NEWMAT::ColumnVector &params, NEWMAT::Matrix &grad) const;
     virtual void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
-    double SignalFromConcentration(double C, double t10, double m0) const;
+    double SignalFromConcentration(double C, double t10, double current_sig0) const;
     double ConcentrationFromSignal(double s, double s0, double t10, double hct) const;
 
 private:
@@ -56,7 +58,7 @@ private:
     double m_FA, m_TR, m_r1, m_dt;
     // AIF as concentration curve
     NEWMAT::ColumnVector m_aif;
-    std::string m_aif_type;
+    std::string m_aif_type, m_conv_method;
 
     // Optional
     double m_vp, m_delay, m_T10, m_sig0;
@@ -73,9 +75,9 @@ private:
     double LogOrNot(double p) const;
     NEWMAT::ColumnVector GetConcentrationMeasuredAif(double delay, double Vp, double Ktrans, double Kep) const;
     NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const double delay) const;
-    //NEWMAT::ColumnVector GetConcentrationOrton(double Vp, double Ktrans, double Ve) const;
-    NEWMAT::ColumnVector compute_concentration_convolution(const double Fp, const double PS, const double Vp, const double Ve, const NEWMAT::ColumnVector &aif) const;
-
+    NEWMAT::ColumnVector compute_concentration(const double Fp, const double PS, const double Vp, const double Ve, const NEWMAT::ColumnVector &aif) const;
+    NEWMAT::ColumnVector compute_convolution_normal(const NEWMAT::ColumnVector &term_1, const NEWMAT::ColumnVector &term_2) const;
+    NEWMAT::ColumnVector compute_convolution_iterative(const NEWMAT::ColumnVector &aif, const double T_term) const;
     /** Auto-register with forward model factory. */
     static FactoryRegistration<FwdModelFactory, DCE2CXMNLLSFwdModel> registration;
 };
