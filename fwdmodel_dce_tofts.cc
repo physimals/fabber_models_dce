@@ -516,13 +516,14 @@ void DCEStdToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     }*/
 
     // Convert to the DCE signal
-    double E10 = exp(-m_TR / T10);
-    double m0 = sig0 * (1 - cos(m_FA) * E10) / (sin(m_FA) * (1 - E10));
+    // We don't need this now because we consider sig0 to be the fully relaxed signal (or proton )
+    //double E10 = exp(-m_TR / T10);
+    //double m0 = sig0 * (1 - cos(m_FA) * E10) / (sin(m_FA) * (1 - E10));
     result.ReSize(data.Nrows());
     for (int i = 1; i <= data.Nrows(); i++)
     {
-        result(i) = SignalFromConcentration(C(i), T10, m0);
-        //std::cerr << "t=" << i-1 << ", C=" << C(i) << ", S=" << result(i) << endl;
+        //result(i) = SignalFromConcentration(C(i), T10, m0);
+        result(i) = SignalFromConcentration(C(i), T10, sig0);
     }
 
     for (int i = 1; i <= data.Nrows(); i++)
