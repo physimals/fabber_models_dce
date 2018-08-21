@@ -338,6 +338,11 @@ void DCE_2CXM_FwdModel::Evaluate(const ColumnVector &params, ColumnVector &resul
             break;
         }
     }
+    cout << paramcpy.t() << endl;
+        cout << "conc: " << C.t() << endl;
+        cout << "result: " << result.t() << endl;
+        cout << "data: " << data.t() << endl;
+        getchar();
 }
 
 FwdModel *DCE_2CXM_FwdModel::NewInstance()

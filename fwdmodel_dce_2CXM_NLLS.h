@@ -1,4 +1,4 @@
-/*  fwdmodel_dce_2CXM_NLLS.cc - Implementation of the non-linear least square solution of the two compartment exchange model
+/*  fwdmodel_dce_2CXM_NLLS.h - Implementation of the non-linear least square solution of the two compartment exchange model
 
 https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.25991
 
