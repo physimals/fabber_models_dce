@@ -1,6 +1,6 @@
-/*  fwdmodel_dce_AATH_NLLS.h - An Adiabatic Approximation to the Tissue Homogeneity Model for Water Exchange in the Brain: I. Theoretical Derivation
+/*  fwdmodel_dce_2CXM_NLLS.h - Implementation of the non-linear least square solution of the two compartment exchange model
 
-http://journals.sagepub.com/doi/full/10.1097/00004647-199812000-00011
+https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.25991
 
  Moss Zhao - IBME, Oxford
 
@@ -75,8 +75,9 @@ private:
     double LogOrNot(double p) const;
     NEWMAT::ColumnVector GetConcentrationMeasuredAif(double delay, double Vp, double Ktrans, double Kep) const;
     NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const double delay) const;
-    NEWMAT::ColumnVector compute_concentration(double Fp, double PS, double Vp, double Ve, NEWMAT::ColumnVector &aif) const;
+    NEWMAT::ColumnVector compute_concentration(double Fp, double PS, double Vp, double Ve, const NEWMAT::ColumnVector &aif) const;
     NEWMAT::ColumnVector compute_convolution_normal(const NEWMAT::ColumnVector &term_1, const NEWMAT::ColumnVector &term_2) const;
+    //NEWMAT::ColumnVector compute_convolution_iterative(const NEWMAT::ColumnVector &aif, const double T_term) const;
     /** Auto-register with forward model factory. */
     static FactoryRegistration<FwdModelFactory, DCEAATHNLLSFwdModel> registration;
 };

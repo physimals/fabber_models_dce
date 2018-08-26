@@ -1,6 +1,6 @@
-/*  fwdmodel_dce_AATH_NLLS.cc - An Adiabatic Approximation to the Tissue Homogeneity Model for Water Exchange in the Brain: I. Theoretical Derivation
+/*  fwdmodel_dce_2CXM_NLLS.cc - Implementation of the non-linear least square solution of the two compartment exchange model
 
-http://journals.sagepub.com/doi/full/10.1097/00004647-199812000-00011
+https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.25991
 
  Moss Zhao - IBME, Oxford
 
@@ -34,6 +34,7 @@ static OptionSpec OPTIONS[] = {
     { "infer-delay", OPT_BOOL, "Infer the delay parameter", OPT_NONREQ, "" },
     { "infer-sig0", OPT_BOOL, "Infer baseline signal", OPT_NONREQ, "" },
     { "infer-T10", OPT_BOOL, "Infer T10 value", OPT_NONREQ, "" },
+    { "convolution-method", OPT_STR, "Method to compute convolution, normal or iterative. Default is iterative", OPT_REQ, "" },
     { "use-log-params", OPT_BOOL, "Infer log values of parameters", OPT_NONREQ, "" },
     { "aif-file", OPT_FILE,
         "File containing single-column ASCII data defining the AIF. For aif=signal, this is the vascular signal curve. For aif=conc, it should be the blood plasma concentration curve",
@@ -111,6 +112,7 @@ void DCEAATHNLLSFwdModel::Initialize(FabberRunData &args)
     m_infer_t10 = args.ReadBool("infer-t10");
     m_infer_sig0 = args.ReadBool("infer-sig0");
     m_infer_delay = args.ReadBool("infer-delay");
+    //m_conv_method = args.GetStringDefault("convolution-method", "iterative");
     m_use_log = args.ReadBool("use-log-params");
     //cerr << "Done Init" << endl;
 }
@@ -119,13 +121,13 @@ vector<string> DCEAATHNLLSFwdModel::GetUsage() const
 {
     vector<string> usage;
 
-    usage.push_back("\nThis model implements the adiabatic approximation to the tissue homogeneity model\n");
+    usage.push_back("\nThis model implements the non-linear least square solution of the two compartment exchange model\n");
     return usage;
 }
 
 std::string DCEAATHNLLSFwdModel::GetDescription() const
 {
-    return "Adiabatic Approximation to the Tissue Homogeneity Model";
+    return "Non-linear least square solution of the two compartment exchange model";
 }
 
 void DCEAATHNLLSFwdModel::DumpParameters(const ColumnVector &vec, const string &indent) const
@@ -165,29 +167,35 @@ void DCEAATHNLLSFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
     SymmetricMatrix precs_post = IdentityMatrix(NumParams()) * 1e-12;
     int p = 1;
 
+    
     // Fp
-    prior.means(p) = LogOrNot(0.02);
+    prior.means(p) = LogOrNot(0.1);
     precs_prior(p, p) = 1e-20;
     precs_post(p, p) = 1;
     p++;
-
+    
+    
+    
     // PS
-    prior.means(p) = LogOrNot(0.02);
+    prior.means(p) = LogOrNot(0.1);
     precs_prior(p, p) = 1e-20;
     precs_post(p, p) = 1;
     p++;
-
+    
+    
     // Vp
-    prior.means(p) = LogOrNot(0.02);
+    prior.means(p) = LogOrNot(0.1);
     precs_prior(p, p) = 1e-20;
     precs_post(p, p) = 1;
     p++;
-
+    
+    
     // Ve
-    prior.means(p) = LogOrNot(0.02);
+    prior.means(p) = LogOrNot(0.1);
     precs_prior(p, p) = 1e-20;
     precs_post(p, p) = 1;
     p++;
+    
 
     // T10
     if (m_infer_t10)
@@ -292,28 +300,32 @@ double DCEAATHNLLSFwdModel::ConcentrationFromSignal(double s, double s0, double 
     return ((r1 - 1 / t10) / m_r1) / (1 - hct);
 }
 
-// Equation 14 of the paper
-ColumnVector DCEAATHNLLSFwdModel::compute_concentration(double Fp, double PS, double Vp, double Ve, NEWMAT::ColumnVector &aif) const
-{
-    double E = 1 - exp(-PS / Fp); // Equation 4
-    double k_adb = E * Fp / Ve; // Equation 15
-    double Vi = Vp;
+ColumnVector DCEAATHNLLSFwdModel::compute_concentration(double Fp, double PS, double Vp, double Ve, const NEWMAT::ColumnVector &aif) const
+{   
+    if(Ve == 0) {
+        Ve = 0.0001;
+    }
+    if(Fp == 0) {
+        Fp = 0.0001;
+    }
+    double E = 1 - exp(-PS / Fp);
+    double k_adb = E * Fp / Ve;
 
-    // Bracket term in Equation 7
-    ColumnVector exp_term(data.Nrows());
-
-    ColumnVector convolution_result(data.Nrows());
+    // Result concentration
     ColumnVector current_concentration(data.Nrows());
+
+    ColumnVector exp_term(data.Nrows());
+    ColumnVector convolution_result(data.Nrows());
 
     for (int t_index = 0; t_index < data.Nrows(); t_index++) {
         double current_t_value = t_index * m_dt - m_delay;
-        exp_term(t_index + 1) = exp(-k_adb * current_t_value); // Equation 14
+        exp_term(t_index + 1) = exp(-k_adb * current_t_value);
     }
 
-    // Do convolution. 
+    // Do convolution.
     convolution_result = compute_convolution_normal(aif, exp_term);
-    // Compute concentration
-    current_concentration = Vi * aif + E * Fp * convolution_result; // Equation 14
+    
+    current_concentration = Vp * aif + E * Fp * convolution_result;
 
     return current_concentration;
 }
@@ -337,7 +349,6 @@ ColumnVector DCEAATHNLLSFwdModel::compute_convolution_normal(const NEWMAT::Colum
     return convolution_result;
 }
 
-
 void DCEAATHNLLSFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     //cerr << "evaluate" << endl;
@@ -353,16 +364,23 @@ void DCEAATHNLLSFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     }
 
     // parameters that are inferred - extract and give sensible names
-    //double Ktrans = paramcpy(1);
-    //double Ve = paramcpy(2);
     //if (Ve == 0) cerr << "WARNING: Ve=0"<< endl;
-    double Fp = paramcpy(1);
-    double PS = paramcpy(2);
-    double Vp = paramcpy(3);
-    double Ve = paramcpy(4);
-    //int p = 2;
-    int p = 5;
-    //double Vp = m_vp;
+    int p = 1;
+    double Fp = paramcpy(p);
+    p++;
+    double PS = paramcpy(p);
+    p++;
+    double Vp = paramcpy(p);
+    p++;
+    double Ve = paramcpy(p);
+    p++;
+    
+    // Should remove this
+    //double Fp = 0.3;
+    //double PS = 0.3;
+    //double Vp = 0;
+    //double Ve = 0.5;
+
     double T10 = m_T10;
     double sig0 = m_sig0;
     double delay = m_delay;
@@ -400,6 +418,7 @@ void DCEAATHNLLSFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
 
     concentration_tissue = compute_concentration(Fp, PS, Vp, Ve, aif_current);
 
+
     for (int i = 1; i <= concentration_tissue.Nrows(); i++)
     {
         if (isnan(concentration_tissue(i)) || isinf(concentration_tissue(i)))
@@ -417,12 +436,6 @@ void DCEAATHNLLSFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     {   
         result(i) = SignalFromConcentration(concentration_tissue(i), T10, sig0);
     }
-
-    cerr << "concentration: " << concentration_tissue.t() << endl;
-    cerr << "result: " << result.t() << endl;
-    cerr << "data: " << data.t() << endl;
-    cerr << "params: " << params.t() << endl;
-    getchar();
 
     for (int i = 1; i <= data.Nrows(); i++)
     {
