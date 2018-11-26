@@ -3,13 +3,16 @@ include ${FSLCONFDIR}/default.mk
 PROJNAME = fabber_dce
 
 USRINCFLAGS = -I${INC_NEWMAT} -I${INC_PROB} -I${INC_BOOST} -I..
-# uncomment below to activate motion correction
-#USRINCFLAGS = -I${INC_NEWMAT} -I${INC_PROB} -I${INC_BOOST} -D__OXASL -D__FABBER_MOTION
 USRLDFLAGS = -L${LIB_NEWMAT} -L${LIB_PROB} -L../fabber_core
 
-LIBS = -lutils -lnewimage -lmiscmaths -lprob -lnewmat -lfslio -lniftiio -lznz -lz -ldl
-# uncomment below to activate motion correction
-#LIBS = -lwarpfns -lutils -lnewimage -lmiscmaths -lprob -lnewmat -lfslio -lniftiio -lznz -lz
+FSLVERSION= $(shell cat ${FSLDIR}/etc/fslversion | head -c 1)
+ifeq ($(FSLVERSION), 6) 
+  NIFTILIB = -lNewNifti
+else 
+  NIFTILIB = -lfslio -lniftiio 
+endif
+
+LIBS = -lutils -lnewimage -lmiscmaths -lprob -lnewmat ${NIFTILIB} -lznz -lz -ldl
 
 XFILES = fabber_dce
 
@@ -17,8 +20,7 @@ XFILES = fabber_dce
 OBJS =  fwdmodel_dce.o fwdmodel_dce_LLS.o fwdmodel_dce_Patlak.o fwdmodel_dce_ETM.o fwdmodel_dce_ETM_LLS.o fwdmodel_dce_CTU.o fwdmodel_dce_CTU_LLS.o fwdmodel_dce_2CXM.o fwdmodel_dce_2CXM_LLS.o fwdmodel_dce_AATH.o fwdmodel_dce_tofts.o
 
 # For debugging:
-OPTFLAGS = -ggdb
-#OPTFLAGS =
+#OPTFLAGS = -ggdb
 
 # Pass Git revision details
 GIT_SHA1:=$(shell git describe --match=NeVeRmAtCh --always --abbrev=40 --dirty)
