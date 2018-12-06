@@ -6,10 +6,10 @@ USRINCFLAGS = -I${INC_NEWMAT} -I${INC_PROB} -I${INC_BOOST} -I..
 USRLDFLAGS = -L${LIB_NEWMAT} -L${LIB_PROB} -L../fabber_core
 
 FSLVERSION= $(shell cat ${FSLDIR}/etc/fslversion | head -c 1)
-ifeq ($(FSLVERSION), 6) 
-  NIFTILIB = -lNewNifti
-else 
+ifeq ($(FSLVERSION), 5) 
   NIFTILIB = -lfslio -lniftiio 
+else 
+  NIFTILIB = -lNewNifti
 endif
 
 LIBS = -lutils -lnewimage -lmiscmaths -lprob -lnewmat ${NIFTILIB} -lznz -lz -ldl
