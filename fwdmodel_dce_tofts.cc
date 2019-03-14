@@ -25,6 +25,12 @@ static OptionSpec OPTIONS[] = {
     { "tr", OPT_FLOAT, "Repetition time (TR) In seconds.", OPT_REQ, "" },
     { "r1", OPT_FLOAT, "Relaxivity of contrast agent, In s^-1 mM^-1.", OPT_REQ, "" },
     { "aif", OPT_STR, "Source of AIF function: orton=Orton (2008) population AIF, signal=User-supplied vascular signal, conc=User-supplied concentration curve", OPT_REQ, "none" },
+
+    { "Ktrans", OPT_FLOAT, "Ktrans in min-1", OPT_NONREQ, "0.3" },
+    { "Vp", OPT_FLOAT, "Plasma volume in decimal between zero and one", OPT_NONREQ, "0.3" },
+    { "Ve", OPT_FLOAT, "Extracellular space volume in decimal between zero and one", OPT_NONREQ, "0.3" },
+
+
     { "sig0", OPT_FLOAT, "Baseline signal. May be inferred.", OPT_NONREQ, "1000" },
     { "t10", OPT_FLOAT, "Baseline T1 value in seconds. May be inferred.", OPT_NONREQ, "1" },
     { "delay", OPT_FLOAT, "Delay time offset relative to AIF in minutes. May be inferred.", OPT_NONREQ, "0" },
@@ -74,6 +80,12 @@ void DCEStdToftsFwdModel::Initialize(FabberRunData &args)
     m_FA = args.GetDouble("fa", 0, 90) * 3.1415926 / 180;
     m_TR = args.GetDouble("tr");
     m_r1 = args.GetDouble("r1");
+
+    // Optional parameters
+    initial_Ktrans = args.GetDoubleDefault("Ktrans", 0.3);
+    initial_Vp = args.GetDoubleDefault("Vp", 0.3);
+    initial_Ve = args.GetDoubleDefault("Ve", 0.3);
+
     m_aif_type = args.GetString("aif");
     if (m_aif_type == "signal")
     {
@@ -170,23 +182,23 @@ void DCEStdToftsFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
     int p = 1;
 
     // Ktrans
-    prior.means(p) = LogOrNot(0.02);
-    precs_prior(p, p) = 1e-20;
+    prior.means(p) = LogOrNot(initial_Ktrans);
+    precs_prior(p, p) = 0.01;
     precs_post(p, p) = 1;
     p++;
 
     // Ve
-    prior.means(p) = LogOrNot(0.02);
-    precs_prior(p, p) = 1e-20;
+    prior.means(p) = LogOrNot(initial_Vp);
+    precs_prior(p, p) = 0.01;
     precs_post(p, p) = 1;
     p++;
 
     // Vp
     if (m_infer_vp)
     {
-        prior.means(p) = LogOrNot(0.01);
-        precs_prior(p, p) = 100;
-        precs_post(p, p) = 100;
+        prior.means(p) = LogOrNot(initial_Ve);
+        precs_prior(p, p) = 0.01;
+        precs_post(p, p) = 0.01;
         p++;
     }
 

@@ -10,7 +10,6 @@
 
 // DCE models to be included from library
 #include "fwdmodel_dce.h"
-#include "fwdmodel_dce_2CXM.h"
 #include "fwdmodel_dce_2CXM_LLS.h"
 #include "fwdmodel_dce_AATH.h"
 #include "fwdmodel_dce_CTU.h"
@@ -19,8 +18,8 @@
 #include "fwdmodel_dce_ETM_LLS.h"
 #include "fwdmodel_dce_LLS.h"
 #include "fwdmodel_dce_Patlak.h"
-#include "fwdmodel_dce_2CXM_NLLS.h"
-#include "fwdmodel_dce_AATH_NLLS.h"
+#include "fwdmodel_dce_tofts.h"
+#include "fwdmodel_dce_2CXM.h"
 
 int main(int argc, char **argv)
 {
@@ -35,9 +34,6 @@ int main(int argc, char **argv)
     DCE_2CXM_FwdModel::NewInstance();
     DCE_2CXM_LLS_FwdModel::NewInstance();
     DCE_AATH_FwdModel::NewInstance();
-    // New models added by Moss
-    DCE2CXMNLLSFwdModel::NewInstance();
-    DCEAATHNLLSFwdModel::NewInstance();
 
     return execute(argc, argv);
 }

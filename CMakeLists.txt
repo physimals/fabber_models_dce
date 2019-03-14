@@ -2,10 +2,6 @@ cmake_minimum_required(VERSION 2.7)
 
 set(MODELS_NAME dce)
 set(MODELS_SRC
-    fwdmodel_dce_2CXM_NLLS.cc
-    fwdmodel_dce_2CXM_NLLS.h
-    fwdmodel_dce_AATH_NLLS.cc
-    fwdmodel_dce_AATH_NLLS.h
     fwdmodel_dce_tofts.cc
     fwdmodel_dce_tofts.h
     fwdmodel_dce.cc

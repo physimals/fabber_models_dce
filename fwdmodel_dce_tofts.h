@@ -55,6 +55,8 @@ private:
     // Mandatory
     double m_FA, m_TR, m_r1, m_dt;
     std::string m_aif_type;
+    // Optional initial values
+    double initial_Ktrans, initial_Vp, initial_Ve;
 
     // Optional
     double m_vp, m_delay, m_T10, m_sig0;
