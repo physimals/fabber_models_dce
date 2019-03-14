@@ -40,6 +40,8 @@ private:
     // Mandatory
     double m_fa, m_tr, m_r1, m_dt;
     std::string m_aif_type;
+    // Optional initial values
+    double initial_Ktrans, initial_Vp, initial_Ve;
 
     // Optional
     double m_vp, m_delay, m_t10, m_sig0;
@@ -59,6 +61,7 @@ private:
     double SignalFromConcentration(double C, double t10, double m0) const;
     double ConcentrationFromSignal(double s, double s0, double t10, double hct) const;
     NEWMAT::ColumnVector GetConcentrationMeasuredAif(double delay, double Vp, double Ktrans, double Kep) const;
+    NEWMAT::ColumnVector compute_tofts_model_measured_aif(double delay, double Vp, double Ktrans, double Ve) const;
     NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const double delay) const;
     NEWMAT::ColumnVector GetConcentrationOrton(double delay, double Vp, double Ktrans, double Ve) const;
 

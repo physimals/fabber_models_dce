@@ -10,7 +10,6 @@
 
 // DCE models to be included from library
 #include "fwdmodel_dce.h"
-#include "fwdmodel_dce_2CXM.h"
 #include "fwdmodel_dce_2CXM_LLS.h"
 #include "fwdmodel_dce_AATH.h"
 #include "fwdmodel_dce_CTU.h"
@@ -19,6 +18,8 @@
 #include "fwdmodel_dce_ETM_LLS.h"
 #include "fwdmodel_dce_LLS.h"
 #include "fwdmodel_dce_Patlak.h"
+#include "fwdmodel_dce_tofts.h"
+#include "fwdmodel_dce_2CXM.h"
 
 int main(int argc, char **argv)
 {

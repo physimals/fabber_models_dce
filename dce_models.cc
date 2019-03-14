@@ -28,7 +28,7 @@ extern "C" {
 
 int CALL get_num_models()
 {
-    return 11;
+    return 14;
 }
 
 const char *CALL get_model_name(int index)
