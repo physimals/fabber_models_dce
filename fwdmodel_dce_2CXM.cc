@@ -1,346 +1,115 @@
-/*  fwdmodel_dce_2CXM.cc - Implementation of the non-linear least square solution of the two compartment exchange model
-
-https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.25991
-
- Moss Zhao - IBME, Oxford
-
- Copyright (C) 2018 University of Oxford  */
+/**
+ * fwdmodel_dce_2CXM.cc
+ *
+ * Implementation of the non-linear least square solution of the two compartment exchange model
+ *
+ * https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.25991
+ * 
+ * Moss Zhao - IBME, Oxford
+ *
+ * Copyright (C) 2018 University of Oxford
+ */
 
 /*  CCOPYRIGHT */
 
 #include "fwdmodel_dce_2CXM.h"
 
-#include "fabber_core/easylog.h"
-#include "miscmaths/miscprob.h"
-#include "newimage/newimageall.h"
-#include <iostream>
+#include <fabber_core/easylog.h>
+#include <fabber_core/priors.h>
+
+#include <miscmaths/miscprob.h>
+#include <newimage/newimageall.h>
+
 #include <newmatio.h>
+
+#include <iostream>
 #include <stdexcept>
-#include <math.h>
 
 using namespace NEWMAT;
 
 FactoryRegistration<FwdModelFactory, DCE_2CXM_FwdModel> DCE_2CXM_FwdModel::registration("dce_2CXM");
-
-static OptionSpec OPTIONS[] = {
-    { "delt", OPT_FLOAT, "Time resolution between volumes, in minutes", OPT_REQ, "" },
-    { "fa", OPT_FLOAT, "Flip angle in degrees.", OPT_REQ, "" },
-    { "tr", OPT_FLOAT, "Repetition time (TR) In seconds.", OPT_REQ, "" },
-    { "r1", OPT_FLOAT, "Relaxivity of contrast agent, In s^-1 mM^-1.", OPT_REQ, "" },
-
-    { "Fp", OPT_FLOAT, "Flow in min-1", OPT_NONREQ, "0.3" },
-    { "PS", OPT_FLOAT, "Permeability surface area product in min-1", OPT_NONREQ, "0.3" },
-    { "Vp", OPT_FLOAT, "Plasma volume in decimal between zero and one", OPT_NONREQ, "0.3" },
-    { "Ve", OPT_FLOAT, "Extracellular space volume in decimal between zero and one", OPT_NONREQ, "0.3" },
-
-    { "aif_type", OPT_STR, "Type of AIF must be aif_type=signal: User-supplied vascular MRI signal or aif_type=conc:User-supplied concentration curve", OPT_REQ, "none" },
-    { "sig0", OPT_FLOAT, "Baseline signal. May be inferred.", OPT_NONREQ, "1000" },
-    { "t10", OPT_FLOAT, "Baseline T1 value in seconds. May be inferred.", OPT_NONREQ, "1" },
-    { "delay", OPT_FLOAT, "Delay time offset relative to AIF in minutes. May be inferred.", OPT_NONREQ, "0" },
-    { "infer-delay", OPT_BOOL, "Infer the delay parameter", OPT_NONREQ, "" },
-    { "infer-sig0", OPT_BOOL, "Infer baseline signal", OPT_NONREQ, "" },
-    { "infer-T10", OPT_BOOL, "Infer T10 value", OPT_NONREQ, "" },
-    { "convolution-method", OPT_STR, "Method to compute convolution, normal or iterative. Default is iterative", OPT_REQ, "" },
-    { "use-log-params", OPT_BOOL, "Infer log values of parameters", OPT_NONREQ, "" },
-    { "aif-file", OPT_FILE,
-        "File containing single-column ASCII data defining the AIF. For aif=signal, this is the vascular signal curve. For aif=conc, it should be the blood plasma concentration curve",
-        OPT_NONREQ, "none" },
-    { "aif-hct", OPT_FLOAT, "Haematocrit value to use when converting an AIF signal to concentration. Used when aif=signal", OPT_NONREQ, "0.45" },
-    { "aif-t1b", OPT_FLOAT, "Blood T1 value to use when converting an AIF signal to concentration. Used when aif=signal", OPT_NONREQ, "1.4" },
-    { "" },
-};
-
-void DCE_2CXM_FwdModel::GetOptions(vector<OptionSpec> &opts) const
-{
-    for (int i = 0; OPTIONS[i].name != ""; i++)
-    {
-        opts.push_back(OPTIONS[i]);
-    }
-}
-
-string DCE_2CXM_FwdModel::ModelVersion() const
-{
-    string version = "Fabber DCE models: ";
-#ifdef GIT_SHA1
-    version += string(" Revision ") + GIT_SHA1;
-#endif
-#ifdef GIT_DATE
-    version += string(" Last commit ") + GIT_DATE;
-#endif
-    return version;
-}
-
-void DCE_2CXM_FwdModel::Initialize(FabberRunData &args)
-{
-    //cerr << "Initialize" << endl;
-    // Mandatory parameters
-    m_dt = args.GetDouble("delt", 0);
-    m_FA = args.GetDouble("fa", 0, 90) * M_PI / 180; // convert from degree to radians
-    m_TR = args.GetDouble("tr");
-    m_r1 = args.GetDouble("r1");
-    m_aif_type = args.GetString("aif_type");
-
-    // Optional parameters
-    initial_Fp = args.GetDoubleDefault("Fp", 0.3);
-    initial_PS = args.GetDoubleDefault("PS", 0.3);
-    initial_Vp = args.GetDoubleDefault("Vp", 0.3);
-    initial_Ve = args.GetDoubleDefault("Ve", 0.3);
-
-    // Case where we need to convert MRI signal into Gd concentration
-    // Appendix A in https://www.sciencedirect.com/science/article/pii/S0730725X10001748
-    if (m_aif_type == "signal")
-    {
-        ColumnVector aif_sig = read_ascii_matrix(args.GetString("aif-file"));
-        // Convert AIF to concentration curve
-        double aif_t1 = args.GetDoubleDefault("aif-t1", 1.4);
-        double aif_hct = args.GetDoubleDefault("aif-hct", 0.45);
-        double aif_sig0 = aif_sig(1);
-        m_aif = aif_sig;
-        for (int t = 0; t < m_aif.Nrows(); t++)
-        {
-            m_aif(t + 1) = ConcentrationFromSignal(aif_sig(t + 1), aif_sig0, aif_t1, aif_hct);
-            //cerr << "t=" << t << "aif C=" << aif(t+1) << endl;
-        }
-    }
-
-    // Case where we have a concentration signal already. No need to do any conversion.
-    // Just copy the input AIF file
-    else if (m_aif_type == "conc")
-    {
-        m_aif = read_ascii_matrix(args.GetString("aif-file"));
-    }
-
-    else
-    {
-        throw InvalidOptionValue("aif", m_aif_type, "Must be signal, conc or orton");
-    }
-
-    // Optional parameters. All of these can be inferred as well
-    //m_vp = args.GetDoubleDefault("vp", 0);
-    m_T10 = args.GetDoubleDefault("t10", 1);
-    m_sig0 = args.GetDoubleDefault("sig0", 1000);
-    m_delay = args.GetDoubleDefault("delay", 0);
-    m_infer_vp = args.ReadBool("infer-vp");
-    m_infer_t10 = args.ReadBool("infer-t10");
-    m_infer_sig0 = args.ReadBool("infer-sig0");
-    m_infer_delay = args.ReadBool("infer-delay");
-    m_conv_method = args.GetStringDefault("convolution-method", "normal");
-    m_use_log = args.ReadBool("use-log-params");
-    //cerr << "Done Init" << endl;
-}
-
-vector<string> DCE_2CXM_FwdModel::GetUsage() const
-{
-    vector<string> usage;
-
-    usage.push_back("\nThis model implements the non-linear least square solution of the two compartment exchange model\n");
-    return usage;
-}
 
 std::string DCE_2CXM_FwdModel::GetDescription() const
 {
     return "Non-linear least square solution of the two compartment exchange model";
 }
 
-void DCE_2CXM_FwdModel::DumpParameters(const ColumnVector &vec, const string &indent) const
+static OptionSpec OPTIONS[] = {
+    { "fp", OPT_FLOAT, "Flow in min-1", OPT_NONREQ, "0.3" },
+    { "ps", OPT_FLOAT, "Permeability surface area product in min-1", OPT_NONREQ, "0.3" },
+    { "vp", OPT_FLOAT, "Plasma volume in decimal between zero and one", OPT_NONREQ, "0.3" },
+    { "ve", OPT_FLOAT, "Extracellular space volume in decimal between zero and one", OPT_NONREQ, "0.3" },
+    { "convolution-method", OPT_STR, "Method to compute convolution, normal or iterative. Default is iterative", OPT_REQ, "" },
+    { "" },
+};
+
+void DCE_2CXM_FwdModel::GetOptions(vector<OptionSpec> &opts) const
 {
+    DCEFwdModel::GetOptions(opts);
+    for (int i = 0; OPTIONS[i].name != ""; i++)
+    {
+        opts.push_back(OPTIONS[i]);
+    }
 }
 
-void DCE_2CXM_FwdModel::NameParams(vector<string> &names) const
+void DCE_2CXM_FwdModel::Initialize(FabberRunData &rundata)
 {
-    names.clear();
-
-    names.push_back("Fp");
-    names.push_back("PS");
-    names.push_back("Vp");
-    names.push_back("Ve");
-    if (m_infer_t10)
-        names.push_back("T10");
-    if (m_infer_sig0)
-        names.push_back("sig0");
-    if (m_infer_delay)
-        names.push_back("delay");
-}
-
-double DCE_2CXM_FwdModel::LogOrNot(double p) const
-{
-    if (m_use_log)
-        return log(p);
-    else
-        return p;
-}
-
-void DCE_2CXM_FwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
-{
-    //cerr << "priors" << endl;
-    assert(prior.means.Nrows() == NumParams());
-
-    SymmetricMatrix precs_prior = IdentityMatrix(NumParams()) * 1e-12;
-    SymmetricMatrix precs_post = IdentityMatrix(NumParams()) * 1e-12;
-    int p = 1;
-
-    // Fp
-    prior.means(p) = LogOrNot(initial_Fp);
-    precs_prior(p, p) = 0.01;
-    precs_post(p, p) = 0.01;
-    p++;
-    // PS
-    prior.means(p) = LogOrNot(initial_PS);
-    precs_prior(p, p) = 0.01;
-    precs_post(p, p) = 0.01;
-    p++;
+    DCEFwdModel::Initialize(rundata);
     
-    // Vp
-    prior.means(p) = LogOrNot(initial_Vp);
-    precs_prior(p, p) = 0.01;
-    precs_post(p, p) = 0.01;
-    p++;
+    // Initial values of main parameters
+    m_fp = rundata.GetDoubleDefault("fp", 0.3);
+    m_ps = rundata.GetDoubleDefault("ps", 0.3);
+    m_vp = rundata.GetDoubleDefault("vp", 0.3);
+    m_ve = rundata.GetDoubleDefault("ve", 0.3);
+
+    // Other model options
+    m_conv_method = rundata.GetStringDefault("convolution-method", "normal");
+}
+
+void DCE_2CXM_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
+{
+    params.clear();
+
+    // Basic model parameters
+    int p=0;
+    params.push_back(Parameter(p++, "fp", DistParams(m_fp, 100), DistParams(m_fp, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+    params.push_back(Parameter(p++, "ps", DistParams(m_ps, 100), DistParams(m_ps, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+    params.push_back(Parameter(p++, "ve", DistParams(m_ve, 10), DistParams(m_ve, 10), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
+    params.push_back(Parameter(p++, "vp", DistParams(m_vp, 10), DistParams(m_vp, 10), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     
-    // Ve
-    prior.means(p) = LogOrNot(initial_Ve);
-    precs_prior(p, p) = 1e-2;
-    precs_post(p, p) = 0.01;
-    p++;
-
-    // T10
-    if (m_infer_t10)
-    {
-        prior.means(p) = LogOrNot(m_T10);
-        precs_prior(p, p) = 1;
-        precs_post(p, p) = 0.1;
-        p++;
-    }
-
-    // sig0
-    if (m_infer_sig0)
-    {
-        prior.means(p) = m_sig0;
-        precs_prior(p, p) = 1e-12;
-        precs_post(p, p) = 0.1;
-        p++;
-    }
-
-    // delay
-    if (m_infer_delay)
-    {
-        prior.means(p) = 0;
-        precs_prior(p, p) = 1e-2;
-        precs_post(p, p) = 1e-2;
-        p++;
-    }
-
-    // Set precsions on priors
-    prior.SetPrecisions(precs_prior);
-
-    // Set initial posterior
-    posterior = prior;
-    posterior.SetPrecisions(precs_post);
-    //cerr << "done priors" << endl;
+    // Standard DCE parameters
+    DCEFwdModel::GetParameterDefaults(params);
 }
 
-
-ColumnVector DCE_2CXM_FwdModel::aifshift(const ColumnVector &aif, const double delay) const
-{
-    // Shift a vector in time by interpolation (linear)
-    // NB Makes assumptions where extrapolation is called for.
-
-    // Number of whole time points of shift.
-    int nshift = floor(delay / m_dt);
-    // Fractional part of the shift
-    double fshift = (delay / m_dt) - nshift;
-
-    if (m_aif.Nrows() != data.Nrows())
-        throw InvalidOptionValue("aif", stringify(m_aif.Nrows()), "Must have " + stringify(data.Nrows()) + " rows to match input data");
-    ColumnVector aifnew(m_aif);
-    int index;
-    for (int i = 1; i <= data.Nrows(); i++)
-    {
-        index = i - nshift;
-        if (index == 1)
-        {
-            //linear interpolation with zero as 'previous' time point. Only
-            // possible if delay is > 0, so fshift > 0
-            aifnew(i) = aif(1) * (1 - fshift);
-        }
-        else if (index < 1)
-        {
-            // Assume aif is zero before zeroth time point
-            aifnew(i) = 0;
-        }
-        else if (index > data.Nrows())
-        {
-            // Beyond the final time point - assume aif takes the value of the final time point
-            aifnew(i) = aif(data.Nrows());
-        }
-        else
-        {
-            //linear interpolation
-            aifnew(i) = aif(index) + (aif(index - 1) - aif(index)) * fshift;
-        }
-    }
-    return aifnew;
-}
-
-// This is the MR signal of spoiled gradient echo sequence
-// Needs checking
-double DCE_2CXM_FwdModel::SignalFromConcentration(double C, double t10, double current_sig0) const
-{
-    double R10 = 1 / t10;
-    double R1 = m_r1 * C + R10;
-    double A = exp(-m_TR * R1);
-
-    return current_sig0 * sin(m_FA) * (1 - A) / (1 - cos(m_FA) * A);
-}
-
-// Appendix A in https://www.sciencedirect.com/science/article/pii/S0730725X10001748
-// This is converting the signal of AIF into concentration values
-// Needs checking
-double DCE_2CXM_FwdModel::ConcentrationFromSignal(double s, double s0, double t10, double hct) const
-{
-    double e10 = exp(-m_TR / t10);
-    double b = (1 - e10) / (1.0 - cos(m_FA) * e10);
-    double sa = s / s0;
-    double v = -log((1 - sa * b) / (1 - sa * b * cos(m_FA)));
-    double r1 = v / m_TR;
-    return ((r1 - 1 / t10) / m_r1) / (1 - hct);
-}
-
-ColumnVector DCE_2CXM_FwdModel::compute_concentration(const double Fp, const double PS, const double Vp, const double Ve, const NEWMAT::ColumnVector &aif) const
+ColumnVector DCE_2CXM_FwdModel::compute_concentration(const double delay, const double fp, const double ps, const double vp, const double ve) const
 {
     // Equation 1 of the paper
-    double Tp = Vp / Fp;
-    double Te = Ve / PS;
-    double T = (Vp + Ve) / Fp;
+    double Tp = vp / fp;
+    double Te = ve / ps;
+    double T = (vp + ve) / fp;
 
     // Equation 9 of the paper
     double T_plus = 0.5 * (T + Te + sqrt(pow((T + Te), 2.0) - 4 * Tp * Te));
     double T_minus = 0.5 * (T + Te - sqrt(pow((T + Te), 2.0) - 4 * Tp * Te));
 
     // Result concentration
-    ColumnVector current_concentration(data.Nrows());
+    ColumnVector current_concentration;
 
     if(m_conv_method == "normal") {
         // Compute convolution using normal technique
-        ColumnVector convolution_result(data.Nrows());
-
-        // Bracket term in Equation 7
-        ColumnVector bracket_term(data.Nrows());
-
-        for (int t_index = 0; t_index < data.Nrows(); t_index++) {
-            double current_t_value = t_index * m_dt - m_delay;
-            bracket_term(t_index + 1) = (T - T_minus) * (exp((-1) * current_t_value / T_plus)) / (T_plus - T_minus) + (T_plus - T) * (exp((-1) * current_t_value / T_minus)) / (T_plus - T_minus);
-            current_concentration(t_index + 1) = 0.0; // Initialize the concentration result vector. It seems that C++ likes this. :O
-        }
-
-        // Do convolution. 
-        convolution_result = compute_convolution_normal(aif, bracket_term);
+        
+        ColumnVector convolution_result = compute_convolution_normal(delay, T, T_plus, T_minus);
         //cout << convolution_result.t() << endl;
-        //getchar();
-        // Compute concentration
-        current_concentration = Fp * convolution_result;
+        current_concentration = fp * convolution_result;
     }
-
-    if(m_conv_method == "iterative") {
+    else if(m_conv_method == "msc") {
+        // Compute convolution using msc technique
+        
+        ColumnVector convolution_result = compute_convolution_msc(delay, T, T_plus, T_minus);
+        cout << convolution_result.t() << endl;
+        current_concentration = fp * convolution_result;
+    }
+    else if(m_conv_method == "iterative") {
         // Compute convolution using iterative technique 
         // We use the method in the appendix of this paper to compute the convolution
         //Some properties of convolution. X represents convolution operation
@@ -348,13 +117,11 @@ ColumnVector DCE_2CXM_FwdModel::compute_concentration(const double Fp, const dou
         //a * (f X g) = (a * f X g)
         //(f + h) X g = f X g + h X g
         //We need to rearrange the terms in Equation 7 using these properties
-        ColumnVector sum_1(data.Nrows());
-        ColumnVector sum_2(data.Nrows());
-        sum_1 = T_plus * (T - T_minus) * compute_convolution_iterative(aif, T_plus) / (T_plus - T_minus);
-        sum_2 = T_minus * (T_plus - T) * compute_convolution_iterative(aif, T_minus) / (T_plus - T_minus);
+        ColumnVector sum_1 = T_plus * (T - T_minus) * compute_convolution_iterative(delay, T_plus) / (T_plus - T_minus);
+        ColumnVector sum_2 = T_minus * (T_plus - T) * compute_convolution_iterative(delay, T_minus) / (T_plus - T_minus);
 
         // Compute concentration
-        current_concentration = Fp * (sum_1 + sum_2);
+        current_concentration = fp * (sum_1 + sum_2);
     }
 
     return current_concentration;
@@ -363,25 +130,85 @@ ColumnVector DCE_2CXM_FwdModel::compute_concentration(const double Fp, const dou
 // Compute convolution using normal method
 // Assuming that the two input vectors have the same length
 // https://stackoverflow.com/questions/24518989/how-to-perform-1-dimensional-valid-convolution
-ColumnVector DCE_2CXM_FwdModel::compute_convolution_normal(const NEWMAT::ColumnVector &term_1, const NEWMAT::ColumnVector &term_2) const
+ColumnVector DCE_2CXM_FwdModel::compute_convolution_normal(const double delay, const double T, const double T_plus, const double T_minus) const
 {
-    // We only need the first Nrows() terms
-    ColumnVector convolution_result(term_1.Nrows());
+    // Get possibly shifted AIF
+    ColumnVector aif(data.Nrows());
+    for (int t_idx=0; t_idx<data.Nrows(); t_idx++) {
+        double t = double(t_idx) * m_dt - delay;
+        aif(t_idx+1) = AIF(t);
+    }
 
-    for (int t_index = 0; t_index < term_1.Nrows(); t_index++) {
+    // We only need the first Nrows() terms
+    ColumnVector convolution_result(data.Nrows());
+
+    // Bracket term in Equation 7
+    ColumnVector bracket_term(data.Nrows());
+    for (int t_index = 0; t_index < data.Nrows(); t_index++) {
+        double t = t_index * m_dt - delay;
+        bracket_term(t_index + 1) = (T - T_minus) * (exp((-1) * t / T_plus)) / (T_plus - T_minus) + (T_plus - T) * (exp((-1) * t / T_minus)) / (T_plus - T_minus);
+    }
+
+    for (int t_index = 0; t_index < aif.Nrows(); t_index++) {
         convolution_result(t_index + 1) = 0;
-        int jmn = (t_index >= term_1.Nrows() - 1)? t_index - (term_1.Nrows() - 1) : 0;
-        int jmx = (t_index <  term_1.Nrows() - 1)? t_index                      : term_1.Nrows() - 1;
+        int jmn = (t_index >= aif.Nrows() - 1)? t_index - (aif.Nrows() - 1) : 0;
+        int jmx = (t_index <  aif.Nrows() - 1)? t_index                             : aif.Nrows() - 1;
         for (int j = jmn; j <= jmx; j++) {
-            convolution_result(t_index + 1) += (term_1(j + 1) * term_2(t_index - j + 1));
+            convolution_result(t_index + 1) += (aif(j + 1) * bracket_term(t_index - j + 1));
         }
     }
     return convolution_result;
 }
 
-// Implementation of appendix of the paper
-ColumnVector DCE_2CXM_FwdModel::compute_convolution_iterative(const NEWMAT::ColumnVector &aif, const double T_term) const
+// Compute convolution using trapezium rule
+ColumnVector DCE_2CXM_FwdModel::compute_convolution_msc(const double delay, const double T, const double T_plus, const double T_minus) const
 {
+    ColumnVector convolution_result(data.Nrows());
+
+    for (int t_idx = 0; t_idx < data.Nrows(); t_idx++)
+    {
+        double t = t_idx * m_dt - delay;
+        if (t <= 0) 
+        {
+            // AIF strictly zero at t <= 0
+            convolution_result(t_idx + 1) = 0;
+        }
+        else 
+        {
+            // Convolution integral: INTEGRAL 0->t {AIF(t) * bracket_term(t-tau)} d tau
+            double I = 0;
+            for (int tau_idx = 0; tau_idx < t_idx; tau_idx++)
+            {
+                double tau = tau_idx * m_dt - delay;
+                if (tau > 0) {
+                    // Bracket term in Equation 7 from paper
+                    double bracket_term = (T - T_minus) * (exp(-(t - tau) / T_plus)) / (T_plus - T_minus) + (T_plus - T) * (exp(-(t - tau) / T_minus)) / (T_plus - T_minus);
+                    I += AIF(tau) * bracket_term;
+                }
+            }
+            if (t_idx >= 1) 
+            {
+                // Last point half contribution in trapezium rule. note first point
+                // is always zero since AIF(0) = 0
+                I += AIF(t) / 2;
+            }
+            convolution_result(t_idx + 1) = I * m_dt;
+        }
+    }
+
+    return convolution_result;
+}
+
+// Implementation of appendix of the paper
+ColumnVector DCE_2CXM_FwdModel::compute_convolution_iterative(const double delay, const double T_term) const
+{
+    // Get possibly shifted AIF
+    ColumnVector aif(data.Nrows());
+    for (int t_idx=0; t_idx<data.Nrows(); t_idx++) {
+        double t = double(t_idx) * m_dt - delay;
+        aif(t_idx+1) = AIF(t);
+    }
+    
     int nhtpts = aif.Nrows();
     ColumnVector f_vector(nhtpts);
 
@@ -412,93 +239,40 @@ ColumnVector DCE_2CXM_FwdModel::compute_convolution_iterative(const NEWMAT::Colu
     return f_vector;
 }
 
-
 void DCE_2CXM_FwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
-    //cerr << "evaluate" << endl;
-    // Convert values if inferring logs, otherwise check not negative
-    ColumnVector paramcpy = params;
-    for (int i = 0; i < paramcpy.Nrows(); i++)
-    {
-        //cerr << "param " << i << "=" << paramcpy(i+1) << endl;
-        if (m_use_log)
-            paramcpy(i + 1) = exp(params(i + 1));
-        else if (params(i + 1) < 0)
-            paramcpy(i + 1) = 0;
-    }
-
-    // parameters that are inferred - extract and give sensible names
-    //double Ktrans = paramcpy(1);
-    //double Ve = paramcpy(2);
-    //if (Ve == 0) cerr << "WARNING: Ve=0"<< endl;
+    // Parameters that are inferred - extract and give sensible names
     int p = 1;
-    double Fp = paramcpy(p);
-    p++;
-    //double Fp = 0.6;
-    //double PS = 0.4;
-    double PS = paramcpy(p);
-    p++;
-    double Vp = paramcpy(p);
-    p++;
-    //double Vp = 0.25;
-    double Ve = paramcpy(p);
-    p++;
-    //int p = 2;
-    //double Vp = m_vp;
-    double T10 = m_T10;
+    double fp = params(p++);
+    double ps = params(p++);
+    double ve = params(p++);
+    double vp = params(p++);
+
+    // Standard DCE parameters - may be inferred
     double sig0 = m_sig0;
     double delay = m_delay;
-    /*
-    if (m_infer_vp)
-    {
-        Vp = paramcpy(p);
-        p++;
-    }
-    */
-    if (m_infer_t10)
-    {
-        T10 = paramcpy(p);
-        p++;
-    }
+    double t10 = m_t10;
     if (m_infer_sig0)
     {
-        sig0 = paramcpy(p);
-        p++;
+        sig0 = params(p++);
     }
     if (m_infer_delay)
     {
-        delay = paramcpy(p);
-        p++;
+        delay = params(p++);
     }
-
-    //ColumnVector C;
-    ColumnVector concentration_tissue; // Tissue concentration results
-
-    ColumnVector aif_current = m_aif;
-    // Condition where we need to shift AIF
-    if (m_infer_delay) {
-        ColumnVector aif_current = aifshift(m_aif, delay);
-    }
-
-    concentration_tissue = compute_concentration(Fp, PS, Vp, Ve, aif_current);
-
-
-    for (int i = 1; i <= concentration_tissue.Nrows(); i++)
+    if (m_infer_t10)
     {
-        if (isnan(concentration_tissue(i)) || isinf(concentration_tissue(i)))
-        {
-            cerr << "Warning NaN or inf in concentration_tissue" << endl;
-            cerr << "result: " << concentration_tissue.t() << endl;
-            cerr << "params: " << params.t() << endl;
-            break;
-        }
+        t10 = params(p++);
     }
 
+    // Tissue concentration results
+    ColumnVector concentration_tissue = compute_concentration(delay, fp, ps, vp, ve);
+    
+    // Converts concentration back to DCE signal
     result.ReSize(data.Nrows());
-    // Converts concentration back to MRI signal
     for (int i = 1; i <= data.Nrows(); i++)
     {   
-        result(i) = SignalFromConcentration(concentration_tissue(i), T10, sig0);
+        result(i) = SignalFromConcentration(concentration_tissue(i), t10, sig0);
     }
 
     for (int i = 1; i <= data.Nrows(); i++)
@@ -508,12 +282,9 @@ void DCE_2CXM_FwdModel::Evaluate(const ColumnVector &params, ColumnVector &resul
             LOG << "Warning NaN or inf in result" << endl;
             LOG << "result: " << result.t() << endl;
             LOG << "params: " << params.t() << endl;
-            LOG << "used params: " << paramcpy.t() << endl;
 
             result = 0.0;
-            //getchar();
             break;
-
         }
     }
 }
