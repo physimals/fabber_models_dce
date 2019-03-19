@@ -17,6 +17,59 @@
 /**
  * Base class for DCE models as they share options
  */
+
+/**
+ * Implementation of the standard/extended Tofts model
+ */
+class DCEFwdModel : public FwdModel
+{
+public:
+    DCEFwdModel()
+    {
+    }
+
+    virtual ~DCEFwdModel()
+    {
+    }
+
+    virtual std::string ModelVersion() const;
+    virtual void GetOptions(std::vector<OptionSpec> &opts) const;
+
+    virtual void Initialize(FabberRunData &rundata);
+    virtual void GetParameterDefaults(std::vector<Parameter> &params) const;
+    
+    virtual void InitVoxelPosterior(MVNDist &posterior) const;
+    
+protected:
+    // Mandatory DCE configuration
+    double m_fa, m_tr, m_r1, m_dt;
+    std::string m_aif_type;
+
+    // Standard DCE parameters (fixed when not inferred)
+    double m_delay, m_t10, m_sig0;
+
+    // Inference flags
+    bool m_infer_delay, m_infer_t10, m_infer_sig0;
+
+    // AIF as concentration curve
+    NEWMAT::ColumnVector m_aif;
+
+    // Other options
+    mutable int m_sig0_idx = -1;
+    bool m_auto_init_delay;
+
+    // Orton AIF parameters
+    double m_ab, m_ag, m_mub, m_mug;
+
+    double SignalFromConcentration(double C, double t10, double m0) const;
+    double ConcentrationFromSignal(double s, double s0, double t10, double hct) const;
+    NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const double delay) const;
+    double OrtonF(double t, double a) const;
+    double OrtonAIF(double t) const;
+    double AIF(double t) const;
+};
+
+#if 0
 class DCEFwdModel : public FwdModel
 {
 public:
@@ -106,3 +159,4 @@ private:
     /** Auto-register with forward model factory. */
     static FactoryRegistration<FwdModelFactory, DCEToftsFwdModel> registration;
 };
+#endif

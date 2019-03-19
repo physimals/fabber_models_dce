@@ -1,38 +1,46 @@
-/*  fwdmodel_dce.cc - Implements a convolution based model for DCE analysis
-
- Jesper Kallehauge, IBME
-
- Copyright (C) 2008 University of Oxford  */
-
-/*  CCOPYRIGHT */
-
 #include "fwdmodel_dce.h"
 
-#include "newimage/newimageall.h"
-#include <iostream>
+#include <fabber_core/easylog.h>
+#include <fabber_core/priors.h>
+
+#include <miscmaths/miscprob.h>
+#include <newimage/newimageall.h>
+
 #include <newmatio.h>
+
+#include <iostream>
 #include <stdexcept>
-using namespace NEWIMAGE;
-#include "fabber_core/easylog.h"
-#include "miscmaths/miscprob.h"
 
 using namespace NEWMAT;
 
-FactoryRegistration<FwdModelFactory, DCEToftsFwdModel> DCEToftsFwdModel::registration("dce");
-
 static OptionSpec OPTIONS[] = {
     { "delt", OPT_FLOAT, "Time resolution between volumes, in minutes", OPT_REQ, "" },
-    { "inferdelay", OPT_BOOL, "Infer the delay parameter", OPT_NONREQ, "" },
-    { "convmtx", OPT_STR, "expConv, simple or voltera", OPT_NONREQ, "simple" },
-    { "aif", OPT_FILE,
-        "Fixed AIF arterial signal as single-column ASCII data. Must be concentration curve, not signal curve",
+    { "fa", OPT_FLOAT, "Flip angle in degrees.", OPT_REQ, "" },
+    { "tr", OPT_FLOAT, "Repetition time (TR) In seconds.", OPT_REQ, "" },
+    { "r1", OPT_FLOAT, "Relaxivity of contrast agent, In s^-1 mM^-1.", OPT_REQ, "" },
+
+    { "t10", OPT_FLOAT, "Baseline T1 value in seconds. May be inferred.", OPT_NONREQ, "1" },
+    { "sig0", OPT_FLOAT, "Baseline signal. This value is ignored if sig0 is inferred.", OPT_NONREQ, "1" },
+    { "delay", OPT_FLOAT, "Injection time (or delay time when using measured AIF) in minutes. May be inferred.", OPT_NONREQ, "0" },
+    { "vp", OPT_FLOAT, "Fractional volume of blood plasma (Vp) in tissue", OPT_NONREQ, "0" },
+    { "infer-t10", OPT_BOOL, "Infer t10 value", OPT_NONREQ, "" },
+    { "infer-sig0", OPT_BOOL, "Infer baseline signal", OPT_NONREQ, "" },
+    { "infer-delay", OPT_BOOL, "Infer the delay parameter", OPT_NONREQ, "" },
+    { "infer-vp", OPT_BOOL, "Infer the Vp parameter", OPT_NONREQ, "" },
+    { "infer-ve", OPT_BOOL, "Infer Ve rather than kep. Normally inferring kep is more numerically stable.", OPT_NONREQ, "" },
+
+    { "aif", OPT_STR, "Source of AIF function: orton=Orton (2008) population AIF, signal=User-supplied vascular signal, conc=User-supplied concentration curve", OPT_REQ, "none" },
+    { "aif-file", OPT_FILE,
+        "File containing single-column ASCII data defining the AIF. For aif=signal, this is the vascular signal curve. For aif=conc, it should be the blood plasma concentration curve",
         OPT_NONREQ, "none" },
-    { "Acq_tech", OPT_STR, "Acquisition tech (SPGR, SRTF or none)", OPT_NONREQ, "none" },
-    { "FA", OPT_FLOAT, "Flip angle in degrees. Required if Acq_tech is not none", OPT_NONREQ, "" },
-    { "TR", OPT_FLOAT, "Repetition time (TR) In seconds. Required if Acq_tech is not none", OPT_NONREQ, "" },
-    { "r1", OPT_FLOAT, "Relaxivity of contrast agent, In s^-1 mM^-1. Required if Acq_tech is not none", OPT_NONREQ, "" },
-    { "Tsat", OPT_FLOAT, "In seconds. Required if Acq_tech is SRTF", OPT_NONREQ, "" },
-    { "aifconc", OPT_BOOL, "Indicates that the AIF is a CTC not signal curve", OPT_NONREQ, "" },
+    { "aif-hct", OPT_FLOAT, "Haematocrit value to use when converting an AIF signal to concentration. Used when aif=sig", OPT_NONREQ, "0.45" },
+    { "aif-t1b", OPT_FLOAT, "Blood T1 value to use when converting an AIF signal to concentration. Used when aif=sig", OPT_NONREQ, "1.4" },
+    { "aif-ab", OPT_FLOAT, "aB parameter for Orton AIF in mM. Used when aif=orton", OPT_NONREQ, "2.84" },
+    { "aif-ag", OPT_FLOAT, "aG parameter for Orton AIF in min^-1. Used when aif=orton", OPT_NONREQ, "1.36" },
+    { "aif-mub", OPT_FLOAT, "MuB parameter for Orton AIF in min^-1. Used when aif=orton", OPT_NONREQ, "22.8" },
+    { "aif-mug", OPT_FLOAT, "MuG parameter for Orton AIF in min^-1. Used when aif=orton", OPT_NONREQ, "0.171" },
+
+    { "auto-init-delay", OPT_BOOL, "Automatically initialize posterior value of delay parameter", OPT_NONREQ, "" },
     { "" },
 };
 
@@ -56,564 +64,234 @@ string DCEFwdModel::ModelVersion() const
     return version;
 }
 
-void DCEFwdModel::Initialize(ArgsType &args)
+void DCEFwdModel::Initialize(FabberRunData &rundata)
 {
-    string scanParams = args.ReadWithDefault("scan-params", "cmdline");
+    // Mandatory parameters
+    m_dt = rundata.GetDouble("delt", 0);
+    m_fa = rundata.GetDouble("fa", 0, 90) * 3.1415926 / 180;
+    m_tr = rundata.GetDouble("tr");
+    m_r1 = rundata.GetDouble("r1");
 
-    if (scanParams == "cmdline")
+    // AIF
+    m_aif_type = rundata.GetString("aif");
+    if (m_aif_type == "signal")
     {
-        // specify command line parameters here
-        delt = convertTo<double>(args.Read("delt"));
-
-        // specify options of the model
-        inferdelay = args.ReadBool("inferdelay");
-
-        convmtx = args.ReadWithDefault("convmtx", "simple");
-
-        // Read in the arterial signal (this will override an image supplied as supplementary data)
-        string artfile = args.ReadWithDefault("aif", "none");
-        if (artfile != "none")
+        // Convert AIF signal to concentration curve
+        ColumnVector aif_sig = read_ascii_matrix(rundata.GetString("aif-file"));
+        double aif_t1 = rundata.GetDoubleDefault("aif-t1", 1.4);
+        double aif_hct = rundata.GetDoubleDefault("aif-hct", 0.45);
+        double aif_sig0 = aif_sig(1);
+        m_aif = aif_sig;
+        for (int t = 0; t < m_aif.Nrows(); t++)
         {
-            artsig = read_ascii_matrix(artfile);
+            m_aif(t + 1) = ConcentrationFromSignal(aif_sig(t + 1), aif_sig0, aif_t1, aif_hct);
         }
-
-        string artimg = args.ReadWithDefault("aifimg", "");
-
-        Acq_tech = args.ReadWithDefault("Acq_tech", "none");
-        cout << Acq_tech << endl;
-        if (Acq_tech != "none")
-        {
-            if (Acq_tech == "SPGR")
-            {
-                FA = convertTo<double>(args.Read("FA"));
-                TR = convertTo<double>(args.Read("TR"));
-                r1 = convertTo<double>(args.Read("r1"));
-            }
-            if (Acq_tech == "SRTF")
-            {
-                FA = convertTo<double>(args.Read("FA"));
-                TR = convertTo<double>(args.Read("TR"));
-                r1 = convertTo<double>(args.Read("r1"));
-                Tsat = convertTo<double>(args.Read("Tsat"));
-            }
-        }
-
-        aifconc = args.ReadBool("aifconc"); // indicates that the AIF is a CTC not signal curve
-        cout << aifconc << "  \n";
-        doard = false;
-        // if (inferart) doard=true;
-
-        imageprior = args.ReadBool("imageprior"); //temp way to indicate we have some image priors (very fixed meaning!)
-
-        // add information about the parameters to the log
-        /* do logging here*/
     }
-
+    else if (m_aif_type == "conc")
+    {
+        m_aif = read_ascii_matrix(rundata.GetString("aif-file"));
+    }
+    else if ((m_aif_type == "orton") || (m_aif_type == "orton_a"))
+    {
+        m_ab = rundata.GetDoubleDefault("aif-ab", 2.84);
+        m_ag = rundata.GetDoubleDefault("aif-ag", 1.36);
+        m_mub = rundata.GetDoubleDefault("aif-mub", 22.8);
+        m_mug = rundata.GetDoubleDefault("aif-mug", 0.171);
+    }
     else
-        throw invalid_argument("Only --scan-params=cmdline is accepted at the moment");
-
-    MakeParamIndex();
-}
-
-vector<string> DCEToftsFwdModel::GetUsage() const
-{
-    vector<string> usage;
-
-    usage.push_back("\nThis model is a one compartment model\n");
-    usage.push_back("It returns  2 parameters :\n");
-    usage.push_back(" Fp: the Plasma flow constant\n");
-    usage.push_back(" Vp: the plasma volume fraction\n");
-
-    return usage;
-}
-
-void DCEFwdModel::DumpParameters(const ColumnVector &vec, const string &indent) const
-{
-}
-
-void DCEFwdModel::NameParams(vector<string> &names) const
-{
-    names.clear();
-
-    names.push_back("Fp");
-    names.push_back("Vp");
-    if (inferdelay)
-        names.push_back("delay");
-    if (Acq_tech != "none")
     {
-        if (Acq_tech == "CT")
-        {
-            names.push_back("sig0");
+        throw InvalidOptionValue("aif", m_aif_type, "Must be signal, conc or orton");
+    }
+
+    // Standard DCE model parameters. All of these can be inferred if required
+    m_t10 = rundata.GetDoubleDefault("t10", 1);
+    m_sig0 = rundata.GetDoubleDefault("sig0", 1);
+    m_delay = rundata.GetDoubleDefault("delay", 0);
+    m_infer_t10 = rundata.ReadBool("infer-t10");
+    m_infer_sig0 = rundata.ReadBool("infer-sig0");
+    m_infer_delay = rundata.ReadBool("infer-delay");
+
+    // Automatically initialise delay posterior
+    m_auto_init_delay = rundata.ReadBool("auto-init-delay");
+}
+
+void DCEFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
+{
+    // Add standard DCE parameters to whatever's there
+    m_sig0_idx = params.size();
+    unsigned int p = m_sig0_idx;
+    if (m_infer_sig0)
+        params.push_back(Parameter(p++, "sig0", DistParams(1, 1e8), DistParams(1, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+    if (m_infer_delay)
+        params.push_back(Parameter(p++, "delay", DistParams(m_delay, 100), DistParams(m_delay, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
+    if (m_infer_t10)
+        params.push_back(Parameter(p++, "t10", DistParams(m_t10, 1), DistParams(m_t10, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
+}
+
+static int fit_step(const ColumnVector &data)
+{
+    // MSC method - fit a step function to the DCE signal to estimate the delay parameter
+    double best_ssq = -1;
+    int step_pos = 0;
+    for (int pos=1; pos<data.Nrows(); pos++) {
+        double mean_left = data.Rows(1, pos).Sum() / pos;
+        double mean_right = data.Rows(pos+1, data.Nrows()).Sum() / (data.Nrows() - pos);
+        double ssq = 0;
+        for (int t=1; t<=pos; t++) {
+            ssq += (data(t) - mean_left)*(data(t) - mean_left);
         }
-        else
-        {
-            names.push_back("sig0");
-            names.push_back("T10");
+        for (int t=pos+1; t<=data.Nrows(); t++) {
+            ssq += (data(t) - mean_right)*(data(t) - mean_right);
         }
+        if ((ssq < best_ssq) || (best_ssq < 0)) {
+            best_ssq = ssq;
+            step_pos = pos;
+        }
+    }
+
+    return step_pos-1;
+}
+
+void DCEFwdModel::InitVoxelPosterior(MVNDist &posterior) const
+{
+    int delay_idx = m_sig0_idx;
+    if (m_infer_sig0) {
+        posterior.means(m_sig0_idx+1) = data(1);
+        delay_idx++;
+    }
+    if (m_infer_delay && m_auto_init_delay) {
+        posterior.means(delay_idx+1) = m_dt * fit_step(data);
     }
 }
 
-void DCEFwdModel::MakeParamIndex()
+/**
+ * Get the AIF function taking into account the delay parameter
+ *
+ * Uses linear interpolation and makes assumptions where extrapolation is called for.
+ */
+ColumnVector DCEFwdModel::aifshift(const ColumnVector &aif, const double delay) const
 {
-    vector<string> names;
-    NameParams(names);
-    for (unsigned int i = 0; i < names.size(); i++)
+    // Don't bother if there is no delay
+    if (delay == 0) 
     {
-        if (names[i] == "Fp")
-            fp_idx = i + 1;
-        if (names[i] == "Vp")
-            vp_idx = i + 1;
-        if (names[i] == "PS")
-            ps_idx = i + 1;
-        if (names[i] == "Ve")
-            ve_idx = i + 1;
-        if (names[i] == "delay")
-            delta_idx = i + 1;
-        if (names[i] == "sig0")
-            sig0_idx = i + 1;
-        if (names[i] == "T10")
-            t10_idx = i + 1;
-        if (names[i] == "Ktrans")
-            ktrans_idx = i + 1;
+        return aif;
     }
-}
 
-ColumnVector DCEFwdModel::aifshift(const ColumnVector &aif, const float delta, const float hdelt) const
-{
-    // Shift a vector in time by interpolation (linear)
-    // NB Makes assumptions where extrapolation is called for.
-    int nshift = floor(delta / hdelt);         // number of time points of shift associated with delta
-    float minorshift = delta - nshift * hdelt; // shift within the sampled time points (this is always a 'forward' shift)
+    // Number of whole time points of shift.
+    int nshift = int(floor(delay / m_dt));
 
-    ColumnVector aifnew(aif);
+    // Fractional part of the shift
+    double fshift = (delay / m_dt) - nshift;
+
+    if (m_aif.Nrows() != data.Nrows())
+        throw InvalidOptionValue("aif", stringify(m_aif.Nrows()), "Must have " + stringify(data.Nrows()) + " rows to match input data");
+    
+    ColumnVector aifnew(m_aif);
     int index;
-    int nhtpts = aif.Nrows();
-    for (int i = 1; i <= nhtpts; i++)
+    for (int i = 1; i <= data.Nrows(); i++)
     {
         index = i - nshift;
         if (index == 1)
         {
-            aifnew(i) = aif(1) * minorshift / hdelt;
-        } //linear interpolation with zero as 'previous' time point
+            // linear interpolation with zero as 'previous' time point. Only
+            // possible if delay is > 0, so fshift > 0
+            aifnew(i) = aif(1) * (1 - fshift);
+        }
         else if (index < 1)
         {
+            // Assume aif is zero before zeroth time point
             aifnew(i) = 0;
-        } // extrapolation before the first time point - assume aif is zero
-        else if (index > nhtpts)
+        }
+        else if (index > data.Nrows())
         {
-            aifnew(i) = aif(nhtpts);
-        } // extrapolation beyond the final time point - assume aif takes the value of the final time point
+            // Beyond the final time point - assume aif takes the value of the final time point
+            aifnew(i) = aif(data.Nrows());
+        }
         else
         {
             //linear interpolation
-            aifnew(i) = aif(index) + (aif(index - 1) - aif(index)) * minorshift / hdelt;
+            aifnew(i) = aif(index) + (aif(index - 1) - aif(index)) * fshift;
         }
     }
     return aifnew;
 }
 
-ColumnVector DCEFwdModel::expConv(const ColumnVector &aifnew, const float T, const ColumnVector htsamp) const
+// This is the MR signal of spoiled gradient echo sequence
+// Needs checking
+double DCEFwdModel::SignalFromConcentration(double C, double t10, double current_sig0) const
 {
-    int nhtpts = aifnew.Nrows();
-    ColumnVector f(nhtpts);
-    if (T == 0.0)
-    {
-        f = aifnew;
-    }
-    else
-    {
-        ColumnVector E(nhtpts - 1);
-        ColumnVector E0(nhtpts - 1);
-        ColumnVector E1(nhtpts - 1);
-        ColumnVector deltime(nhtpts - 1);
-        ColumnVector deltaif(nhtpts - 1);
+    double R10 = 1 / t10;
+    double R1 = m_r1 * C + R10;
+    double A = exp(-m_tr * R1);
 
-        for (int i = 2; i <= nhtpts; i++)
-        {
-            deltaif(i - 1) = T * (aifnew(i) - aifnew(i - 1)) / (htsamp(i) - htsamp(i - 1));
-            deltime(i - 1) = (htsamp(i) - htsamp(i - 1)) / T;
-        }
-        E = exp(-deltime);
-        E0 = 1.0 - E;
-        E1 = deltime - E0;
-        f(1) = 0.0;
-        for (int i = 2; i <= nhtpts; i++)
-        {
-            f(i) = E(i - 1) * f(i - 1) + (aifnew(i - 1) * E0(i - 1) + deltaif(i - 1) * E1(i - 1));
-        }
-    }
-    return f;
+    return current_sig0 * sin(m_fa) * (1 - A) / (1 - cos(m_fa) * A);
 }
 
-void DCEFwdModel::createconvmtx(LowerTriangularMatrix &A, const ColumnVector aifnew) const
+// Appendix A in https://www.sciencedirect.com/science/article/pii/S0730725X10001748
+// This is converting the signal of AIF into concentration values
+// Needs checking
+double DCEFwdModel::ConcentrationFromSignal(double s, double s0, double t10, double hct) const
 {
-    // create the convolution matrix
-    int nhtpts = aifnew.Nrows();
+    double e10 = exp(-m_tr / t10);
+    double b = (1 - e10) / (1.0 - cos(m_fa) * e10);
+    double sa = s / s0;
+    double v = -log((1 - sa * b) / (1 - sa * b * cos(m_fa)));
+    double r1 = v / m_tr;
+    return ((r1 - 1 / t10) / m_r1) / (1 - hct);
+}
 
-    if (convmtx == "simple")
+// f(t, a) from Orton 2008 (Eq A.2)
+double DCEFwdModel::OrtonF(double t, double a) const
+{
+    if (a == 0)
+        return 0;
+
+    double ret = ((1 - exp(-a * t)) / a) - (a * cos(m_mub * t) + m_mub * sin(m_mub * t) - a * exp(-a * t)) / (a * a + m_mub * m_mub);
+    return ret;
+}
+
+// Orton 20008 (Eq 4) - AIF function in concentration
+double DCEFwdModel::OrtonAIF(double t) const
+{
+    double tb = 2*3.14159265 / m_mub;
+    if (t <= 0) 
     {
-        // Simple convolution matrix
-        for (int i = 1; i <= nhtpts; i++)
-        { //
-            for (int j = 1; j <= i; j++)
-            {
-                A(i, j) = aifnew(i - j + 1); //note we are using the local aifnew here! (i.e. it has been suitably time shifted)
-            }
-        }
+        return 0;
     }
-
-    //cout << A << endl;
-
-    else if (convmtx == "voltera")
+    else if ( t <= tb) 
     {
-        ColumnVector aifextend(nhtpts + 2);
-        ColumnVector zero(1);
-        zero = 0;
-        aifextend = zero & aifnew & zero;
-        int x, z;
-        //voltera convolution matrix (as defined by Sourbron 2007) - assume zeros outside aif range
-        for (int i = 1; i <= nhtpts; i++)
-        {
-            for (int j = 1; j <= i; j++)
-            {
-                //cout << i << "  " << j << endl;
-                x = i + 1;
-                z = i - j + 1;
-                if (j == 1)
-                {
-                    A(i, j) = (2 * aifextend(x) + aifextend(x - 1)) / 6;
-                }
-                else if (j == i)
-                {
-                    A(i, j) = (2 * aifextend(2) + aifextend(3)) / 6;
-                }
-                else
-                {
-                    A(i, j) = (4 * aifextend(z) + aifextend(z - 1) + aifextend(z + 1)) / 6;
-                    //cout << x << "  " << y << "  " << z << "  " << ( 4*aifextend(z) + aifextend(z-1) + aifextend(z+1) )/6 << "  " << 1/6*(4*aifextend(z) + aifextend(z-1) + aifextend(z+1)) << endl;
-                    // cout << aifextend(z) << "  " << aifextend(z-1) << "  " << aifextend(z+1) << endl;
-                }
-                //cout << i << "  " << j << "  " << aifextend(z) << "  " << A(i,j) << endl<<endl;
-            }
-        }
+        return m_ab * (1-cos(m_mub*t)) + m_ab*m_ag*OrtonF(t, m_mug);
+    }
+    else 
+    {
+        return m_ab*m_ag*OrtonF(tb, m_mug)*exp(-m_mug*(t-tb));
     }
 }
 
-std::string DCEToftsFwdModel::GetDescription() const
+double DCEFwdModel::AIF(double t) const
 {
-    return "The One compartment model often refered to as the standard Tofts model";
-}
-
-void DCEToftsFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
-{
-    assert(prior.means.Nrows() == NumParams());
-
-    SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e-12;
-
-    // Set priors
-    // Fp or Ktrans whatever you belive
-    prior.means(fp_idx) = 0.1;
-    precisions(fp_idx, fp_idx) = 1e-12;
-
-    prior.means(vp_idx) = 0.01;
-    precisions(vp_idx, vp_idx) = 1e-12;
-
-    if (Acq_tech != "none")
+    if (t <= 0) 
     {
-        precisions(sig0_idx, sig0_idx) = 1e-12;
-        precisions(t10_idx, t10_idx) = 10;
+        return 0;
     }
-
-    if (inferdelay)
+    else if (m_aif_type == "orton") 
     {
-        // delay parameter
-        prior.means(delta_idx) = 0;
-        precisions(delta_idx, delta_idx) = 0.04; //[0.1]; //<1>;
+        return OrtonAIF(t);
     }
-
-    // Set precsions on priors
-    prior.SetPrecisions(precisions);
-
-    // Set initial posterior
-    posterior = prior;
-
-    // For parameters with uniformative prior chosoe more sensible inital posterior
-    // Tissue perfusion
-    posterior.means(fp_idx) = 0.1;
-    precisions(fp_idx, fp_idx) = 0.1;
-
-    posterior.means(vp_idx) = 0.1;
-    precisions(vp_idx, vp_idx) = 0.1;
-
-    posterior.SetPrecisions(precisions);
-}
-
-void DCEToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
-{
-    // ensure that values are reasonable
-    // negative check
-    ColumnVector paramcpy = params;
-    for (int i = 1; i <= NumParams(); i++)
+    else 
     {
-        if (params(i) < 0)
+        // Linearly interpolate provided AIF. Assume AIF is 
+        // constant beyond the last point
+        double t_idx = t / m_dt;
+        int t_idx_0 = int(floor(t_idx));
+        double t_idx_frac = t_idx - double(t_idx_0);
+        if (t_idx_0 < m_aif.Nrows()-1)
         {
-            paramcpy(i) = 0;
+            return t_idx_frac*m_aif(t_idx_0+1) + (1-t_idx_frac)*m_aif(t_idx_0+2);
         }
-    }
-
-    // parameters that are inferred - extract and give sensible names
-    float Fp;
-    float Vp; //mean of the transit time distribution
-    float delta;
-    float sig0; //'inital' value of the signal
-    float T10;
-    float FA_radians;
-
-    // extract values from params
-    Fp = paramcpy(fp_idx);
-    Vp = paramcpy(vp_idx);
-    if (Vp < 1e-8)
-        Vp = 1e-8;
-    if (Vp > 1)
-        Vp = 1;
-    if (Fp < 1e-8)
-        Fp = 1e-8;
-
-    if (inferdelay)
-    {
-        delta = params(delta_idx); // NOTE: delta is allowed to be negative
-    }
-    else
-    {
-        delta = 0;
-    }
-    if (Acq_tech != "none")
-    {
-        if (Acq_tech == "CT")
+        else 
         {
-            sig0 = paramcpy(sig0_idx);
+            return m_aif(m_aif.Nrows());
         }
-        else
-        {
-            sig0 = paramcpy(sig0_idx);
-            T10 = paramcpy(t10_idx);
-            FA_radians = FA * 3.1415926 / 180;
-        }
-    }
-
-    ColumnVector artsighere; // the arterial signal to use for the analysis
-    if (artsig.Nrows() > 0)
-    {
-        artsighere = artsig; //use the artsig that was loaded by the model
-    }
-    else
-    {
-        //use an artsig from supplementary data
-        if (suppdata.Nrows() > 0)
-        {
-            artsighere = suppdata;
-        }
-        else
-        {
-            throw runtime_error("No valid AIF found");
-        }
-    }
-    // use length of the aif to determine the number of time points
-    int ntpts = artsighere.Nrows();
-
-    // sensible limits on delta (beyond which it gets silly trying to estimate it)
-    if (delta > ntpts / 2 * delt)
-    {
-        delta = ntpts / 2 * delt;
-    }
-    if (delta < -ntpts / 2 * delt)
-    {
-        delta = -ntpts / 2 * delt;
-    }
-
-    //upsampled timeseries
-    int upsample;
-    int nhtpts;
-    float hdelt;
-    ColumnVector htsamp;
-
-    // Create vector of sampled times
-    ColumnVector tsamp(ntpts);
-    for (int i = 1; i <= ntpts; i++)
-    {
-        tsamp(i) = (i - 1) * delt;
-    }
-
-    upsample = 1;
-    nhtpts = (ntpts - 1) * upsample + 1;
-    htsamp.ReSize(nhtpts);
-    htsamp(1) = tsamp(1);
-    hdelt = delt / upsample;
-    for (int i = 2; i <= nhtpts - 1; i++)
-    {
-        htsamp(i) = htsamp(i - 1) + hdelt;
-    }
-    htsamp(nhtpts) = tsamp(ntpts);
-
-    // calculate the arterial input function (from upsampled artsig)
-    ColumnVector aif_low(ntpts);
-    aif_low = artsighere;
-
-    // upsample the signal
-    ColumnVector aif;
-    aif.ReSize(nhtpts);
-    aif(1) = aif_low(1);
-    int j = 0;
-    int ii = 0;
-    for (int i = 2; i <= nhtpts - 1; i++)
-    {
-        j = floor((i - 1) / upsample) + 1;
-        ii = i - upsample * (j - 1) - 1;
-        aif(i) = aif_low(j) + ii / upsample * (aif_low(j + 1) - aif_low(j));
-    }
-    aif(nhtpts) = aif_low(ntpts);
-
-    // create the AIF matrix - empty for the time being
-    LowerTriangularMatrix A(nhtpts);
-    A = 0.0;
-
-    // deal with delay parameter - this shifts the aif
-    ColumnVector aifnew(aif);
-    aifnew = aifshift(aif, delta, hdelt);
-    //cout<<aifnew.Nrows()<<endl;
-
-    //ColumnVector C_art(aif);
-    //cout<<aifnew<< endl;
-    // populate AIF matrix
-    createconvmtx(A, aifnew);
-    //do the convolution (multiplication)
-    //aifnew = hdelt*A;
-
-    // --- Residue Function ----
-    ColumnVector residue(nhtpts);
-    residue = 0.0;
-
-    residue = exp(-(Fp / Vp) * htsamp); // the 1 compartment model.
-    //cout << residue.t() << endl;
-    //cout << htsamp << endl;
-
-    //residue(1) = 1; //always tru - avoid any roundoff errors
-
-    //cout << A << endl;
-
-    // do the multiplication
-    ColumnVector C;
-    // cout<<A(1,2)<<endl;
-    if (convmtx == "expConv")
-    {
-        float T;
-        T = Vp / Fp;
-        C = Fp * T * expConv(aifnew, T, htsamp);
-    }
-    else
-    {
-        C = Fp * hdelt * A * residue;
-    }
-
-    //convert to the DCE signal
-
-    //cout  << "C: " << C.t() << endl;
-    // exit(0);
-    //cout << "sig0: " << sig0 << " r2: " << r2 << " te: " << te << endl;
-
-    //cout<< htsamp.t() << endl;
-
-    ColumnVector C_low(ntpts);
-    for (int i = 1; i <= ntpts; i++)
-    {
-        C_low(i) = C((i - 1) * upsample + 1);
-        //C_low(i) = interp1(htsamp,C,tsamp(i));
-        //     if (inferart && !artoption) { //add in arterial contribution
-        //       C_low(i) += C_art((i-1)*upsample+1);
-        //     }
-    }
-
-    ColumnVector S_low(ntpts);
-    if (Acq_tech == "SPGR")
-    {
-        for (int i = 1; i <= ntpts; i++)
-        {
-            S_low(i) = sig0 * (1 - exp(-TR * (1 / T10 + r1 * C_low(i))))
-                / (1 - cos(FA_radians) * exp(-TR * (1 / T10 + r1 * C_low(i)))); //SPGR
-        }
-    }
-    if (Acq_tech == "SRTF")
-    {
-        S_low = sig0 * (1 - exp(-Tsat * (1 / T10 + r1 * C_low))) / (1 - exp(-Tsat / T10));
-        // for (int i=1; i<=ntpts; i++){
-        // S_low(i)=sig0*(1-exp(-Tsat*(1/T10+r1*C_low(i))))*(1-exp(-TR*(1/T10+r1*C_low(i))))/(1-cos(FA_radians)*exp(-TR*(1/T10+r1*C_low(i))));//SRTF
-        //      }
-    }
-    if (Acq_tech == "CT")
-    {
-        S_low = C_low + sig0;
-    }
-    if (Acq_tech == "none")
-    {
-        S_low = C_low;
-    }
-
-    result.ReSize(ntpts);
-    //cout<<C.t()<<endl;
-
-    result = S_low;
-    //   ColumnVector sig_art(ntpts);
-    //   result.ReSize(ntpts);
-    //   for (int i=1; i<=ntpts; i++) {
-
-    //     if (inferart && artoption) {
-    //       sig_art(i) = C_art((i-1)*upsample+1);
-    //       sig_art(i) = exp(-sig_art(i)*te);
-
-    //       /*
-    //       float cbv = gmu*cbf;
-    //       float sumbv = artmag+cbv;
-    //       if (sumbv<1e-12) sumbv=1e-12; //catch cases where both volumes are zero
-    //       float ratio = artmag/sumbv;
-    //       result(i) = sig0*(1 + ratio*(sig_art(i)-1) + (1-ratio)*(exp(-C_low(i)*te)-1) ); //assume relative scaling is based on the relative proportions of blood volume
-    //       */
-    //       result(i) = sig0*(1 + (sig_art(i)-1) + (exp(-C_low(i)*te)-1) );
-    //     }
-    //     else {
-    //       result(i) = sig0*exp(-C_low(i)*te);
-    //     }
-    //   }
-
-    for (int i = 1; i <= ntpts; i++)
-    {
-        if (isnan(result(i)) || isinf(result(i)))
-        {
-            exit(0);
-            LOG << "Warning NaN of inf in result" << endl;
-            LOG << "result: " << result.t() << endl;
-            LOG << "params: " << params.t() << endl;
-
-            result = 0.0;
-            break;
-        }
-    }
-
-    // downsample back to normal time points
-    //cout << estsig.t() << endl;
-    //result.ReSize(ntpts);
-    //result=estsig;
-    /*for (int i=1; i<=ntpts; i++) {
-	 result(i) = interp1(htsamp,estsig,tsamp(i));
-	 }
-	 if ((result-estsig).SumAbsoluteValue()>0.1){
-	 cout << result.t() << endl;
-	 cout << estsig.t() << endl;
-	 }*/
-
-    //cout << result.t()<< endl;
-}
-
-FwdModel *DCEToftsFwdModel::NewInstance()
-{
-    return new DCEToftsFwdModel();
+    }   
 }
