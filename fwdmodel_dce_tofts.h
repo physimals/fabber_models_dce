@@ -1,13 +1,20 @@
-/*  fwdmodel_dce.h -Implements a convolution based model for DCE analysis
-
- Jesper Kallehauge, IBME
-
- Copyright (C) 2016 University of Oxford  */
+/**
+ * fwdmodel_dce_tofts.h 
+ *
+ * Standard Tofts model for DCE analysis
+ *
+ * @author Martin Craig IBME Oxford
+ *
+ *
+ * Copyright (C) 2018 University of Oxford  
+ */
 
 /*  CCOPYRIGHT */
 #pragma once
 
-#include "fabber_core/fwdmodel.h"
+#include "fwdmodel_dce.h"
+
+#include <fabber_core/fwdmodel.h>
 
 #include <newmat.h>
 
@@ -17,7 +24,7 @@
 /**
  * Implementation of the standard/extended Tofts model
  */
-class DCEStdToftsFwdModel : public FwdModel
+class DCEStdToftsFwdModel : public DCEFwdModel
 {
 public:
     static FwdModel *NewInstance();
@@ -27,42 +34,26 @@ public:
     }
 
     std::string GetDescription() const;
-    virtual std::string ModelVersion() const;
     void GetOptions(std::vector<OptionSpec> &opts) const;
-
-    virtual void Initialize(FabberRunData &rundata);
+    void Initialize(FabberRunData &rundata);
     void GetParameterDefaults(std::vector<Parameter> &params) const;
-    void InitVoxelPosterior(MVNDist &posterior) const;
-
-    virtual void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
+    void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
 
 private:
-    // Mandatory
-    double m_fa, m_tr, m_r1, m_dt;
-    std::string m_aif_type;
-    // Optional initial values
-    double initial_Ktrans, initial_Vp, initial_Ve;
+    // Initial values of model parameters - always inferred
+    double m_ktrans, m_ve;
 
-    // Optional
-    double m_vp, m_delay, m_t10, m_sig0;
-
-    // Orton AIF
-    double m_ab, m_ag, m_mub, m_mug;
+    // Optional model parameters - fixed when not inferred
+    double m_vp;
 
     // Inference flags
-    bool m_infer_vp, m_infer_delay, m_infer_t10, m_infer_sig0, m_infer_ve;
+    bool m_infer_vp, m_infer_kep;
 
-    // Other options
-    bool m_auto_init_delay;
+    // Evaluation options
+    bool m_force_conv;
 
-    // AIF as concentration curve
-    NEWMAT::ColumnVector m_aif;
-
-    double SignalFromConcentration(double C, double t10, double m0) const;
-    double ConcentrationFromSignal(double s, double s0, double t10, double hct) const;
     NEWMAT::ColumnVector GetConcentrationMeasuredAif(double delay, double Vp, double Ktrans, double Kep) const;
     NEWMAT::ColumnVector compute_tofts_model_measured_aif(double delay, double Vp, double Ktrans, double Ve) const;
-    NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const double delay) const;
     NEWMAT::ColumnVector GetConcentrationOrton(double delay, double Vp, double Ktrans, double Ve) const;
 
     /** Auto-register with forward model factory. */
