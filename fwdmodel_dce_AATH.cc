@@ -102,16 +102,16 @@ ColumnVector DCE_AATH_FwdModel::compute_concentration(double delay, double fp, d
     //    double current_t_value = t_index * m_dt - m_delay;
     //    exp_term(t_index + 1) = exp(-k_adb * current_t_value);
     //}
-    //ColumnVector convolution_result = compute_convolution_normal(aif, exp_term);
-    ColumnVector convolution_result = compute_convolution_msc(delay, k_adb);
+    //ColumnVector convolution_result = compute_convolution_matrix(aif, exp_term);
+    ColumnVector convolution_result = compute_convolution_trap(delay, k_adb);
     
     return vp * aif + E * fp * convolution_result;
 }
 
-// Compute convolution using normal method
+// Compute convolution using matrix multiplication
 // Assuming that the two input vectors have the same length
 // https://stackoverflow.com/questions/24518989/how-to-perform-1-dimensional-valid-convolution
-ColumnVector DCE_AATH_FwdModel::compute_convolution_normal(const NEWMAT::ColumnVector &term_1, const NEWMAT::ColumnVector &term_2) const
+ColumnVector DCE_AATH_FwdModel::compute_convolution_matrix(const NEWMAT::ColumnVector &term_1, const NEWMAT::ColumnVector &term_2) const
 {
     ColumnVector convolution_result(term_1.Nrows());
 
@@ -127,7 +127,7 @@ ColumnVector DCE_AATH_FwdModel::compute_convolution_normal(const NEWMAT::ColumnV
 }
 
 // Compute convolution using trapezium rule
-ColumnVector DCE_AATH_FwdModel::compute_convolution_msc(const double delay, const double k_adb) const
+ColumnVector DCE_AATH_FwdModel::compute_convolution_trap(const double delay, const double k_adb) const
 {
     ColumnVector convolution_result(data.Nrows());
 

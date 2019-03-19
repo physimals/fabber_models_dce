@@ -46,8 +46,8 @@ private:
     double m_fp, m_ps, m_ve, m_vp;
 
     NEWMAT::ColumnVector compute_concentration(const double delay, const double Fp, const double PS, const double Vp, const double Ve) const;
-    NEWMAT::ColumnVector compute_convolution_normal(const NEWMAT::ColumnVector &term_1, const NEWMAT::ColumnVector &term_2) const;
-    NEWMAT::ColumnVector compute_convolution_msc(const double delay, const double k_adb) const;
+    NEWMAT::ColumnVector compute_convolution_matrix(const NEWMAT::ColumnVector &term_1, const NEWMAT::ColumnVector &term_2) const;
+    NEWMAT::ColumnVector compute_convolution_trap(const double delay, const double k_adb) const;
 
     /** Auto-register with forward model factory. */
     static FactoryRegistration<FwdModelFactory, DCE_AATH_FwdModel> registration;

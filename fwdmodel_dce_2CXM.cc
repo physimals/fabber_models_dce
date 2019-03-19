@@ -39,7 +39,7 @@ static OptionSpec OPTIONS[] = {
     { "ps", OPT_FLOAT, "Permeability surface area product in min-1", OPT_NONREQ, "0.3" },
     { "vp", OPT_FLOAT, "Plasma volume in decimal between zero and one", OPT_NONREQ, "0.3" },
     { "ve", OPT_FLOAT, "Extracellular space volume in decimal between zero and one", OPT_NONREQ, "0.3" },
-    { "convolution-method", OPT_STR, "Method to compute convolution, normal or iterative. Default is iterative", OPT_REQ, "" },
+    { "conv-method", OPT_STR, "Method to compute convolution, trapezium, matrix or iterative. Default is iterative", OPT_REQ, "iterative"},
     { "" },
 };
 
@@ -63,7 +63,7 @@ void DCE_2CXM_FwdModel::Initialize(FabberRunData &rundata)
     m_ve = rundata.GetDoubleDefault("ve", 0.3);
 
     // Other model options
-    m_conv_method = rundata.GetStringDefault("convolution-method", "normal");
+    m_conv_method = rundata.GetStringDefault("conv-method", "iterative");
 }
 
 void DCE_2CXM_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
@@ -95,18 +95,14 @@ ColumnVector DCE_2CXM_FwdModel::compute_concentration(const double delay, const 
     // Result concentration
     ColumnVector current_concentration;
 
-    if(m_conv_method == "normal") {
-        // Compute convolution using normal technique
-        
-        ColumnVector convolution_result = compute_convolution_normal(delay, T, T_plus, T_minus);
-        //cout << convolution_result.t() << endl;
+    if(m_conv_method == "matrix") {
+        // Compute convolution using matrix multiplication
+        ColumnVector convolution_result = compute_convolution_matrix(delay, T, T_plus, T_minus);
         current_concentration = fp * convolution_result;
     }
-    else if(m_conv_method == "msc") {
-        // Compute convolution using msc technique
-        
-        ColumnVector convolution_result = compute_convolution_msc(delay, T, T_plus, T_minus);
-        cout << convolution_result.t() << endl;
+    else if(m_conv_method == "trapezium") {
+        // Compute convolution using trapezium rule
+        ColumnVector convolution_result = compute_convolution_trap(delay, T, T_plus, T_minus);
         current_concentration = fp * convolution_result;
     }
     else if(m_conv_method == "iterative") {
@@ -127,10 +123,10 @@ ColumnVector DCE_2CXM_FwdModel::compute_concentration(const double delay, const 
     return current_concentration;
 }
 
-// Compute convolution using normal method
+// Compute convolution using matrix multiplication
 // Assuming that the two input vectors have the same length
 // https://stackoverflow.com/questions/24518989/how-to-perform-1-dimensional-valid-convolution
-ColumnVector DCE_2CXM_FwdModel::compute_convolution_normal(const double delay, const double T, const double T_plus, const double T_minus) const
+ColumnVector DCE_2CXM_FwdModel::compute_convolution_matrix(const double delay, const double T, const double T_plus, const double T_minus) const
 {
     // Get possibly shifted AIF
     ColumnVector aif(data.Nrows());
@@ -157,11 +153,11 @@ ColumnVector DCE_2CXM_FwdModel::compute_convolution_normal(const double delay, c
             convolution_result(t_index + 1) += (aif(j + 1) * bracket_term(t_index - j + 1));
         }
     }
-    return convolution_result;
+    return convolution_result * m_dt;
 }
 
 // Compute convolution using trapezium rule
-ColumnVector DCE_2CXM_FwdModel::compute_convolution_msc(const double delay, const double T, const double T_plus, const double T_minus) const
+ColumnVector DCE_2CXM_FwdModel::compute_convolution_trap(const double delay, const double T, const double T_plus, const double T_minus) const
 {
     ColumnVector convolution_result(data.Nrows());
 

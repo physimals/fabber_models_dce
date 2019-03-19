@@ -48,9 +48,9 @@ private:
     std::string m_conv_method;
 
     NEWMAT::ColumnVector compute_concentration(const double delay, const double Fp, const double PS, const double Vp, const double Ve) const;
-    NEWMAT::ColumnVector compute_convolution_normal(const double delay, const double T, const double T_plus, const double T_minus) const;
+    NEWMAT::ColumnVector compute_convolution_matrix(const double delay, const double T, const double T_plus, const double T_minus) const;
     NEWMAT::ColumnVector compute_convolution_iterative(const double delay, const double T_term) const;
-    NEWMAT::ColumnVector compute_convolution_msc(const double delay, const double T, const double T_plus, const double T_minus) const;
+    NEWMAT::ColumnVector compute_convolution_trap(const double delay, const double T, const double T_plus, const double T_minus) const;
     
     /** Auto-register with forward model factory. */
     static FactoryRegistration<FwdModelFactory, DCE_2CXM_FwdModel> registration;
