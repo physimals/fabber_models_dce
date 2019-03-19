@@ -29,7 +29,7 @@ static OptionSpec OPTIONS[] = {
     { "infer-vp", OPT_BOOL, "Infer the Vp parameter", OPT_NONREQ, "" },
     { "infer-ve", OPT_BOOL, "Infer Ve rather than kep. Normally inferring kep is more numerically stable.", OPT_NONREQ, "" },
 
-    { "aif", OPT_STR, "Source of AIF function: orton=Orton (2008) population AIF, signal=User-supplied vascular signal, conc=User-supplied concentration curve", OPT_REQ, "none" },
+    { "aif", OPT_STR, "Source of AIF function: orton=Orton (2008) population AIF, parker=Parker (2006) population AIF, signal=User-supplied vascular signal, conc=User-supplied concentration curve", OPT_REQ, "none"},
     { "aif-file", OPT_FILE,
         "File containing single-column ASCII data defining the AIF. For aif=signal, this is the vascular signal curve. For aif=conc, it should be the blood plasma concentration curve",
         OPT_NONREQ, "none" },
@@ -91,16 +91,20 @@ void DCEFwdModel::Initialize(FabberRunData &rundata)
     {
         m_aif = read_ascii_matrix(rundata.GetString("aif-file"));
     }
-    else if ((m_aif_type == "orton") || (m_aif_type == "orton_a"))
+    else if (m_aif_type == "orton")
     {
         m_ab = rundata.GetDoubleDefault("aif-ab", 2.84);
         m_ag = rundata.GetDoubleDefault("aif-ag", 1.36);
         m_mub = rundata.GetDoubleDefault("aif-mub", 22.8);
         m_mug = rundata.GetDoubleDefault("aif-mug", 0.171);
     }
+    else if (m_aif_type == "parker")
+    {
+        // FIXME read in Parker AIF parameters rather than hardcoding?
+    }
     else
     {
-        throw InvalidOptionValue("aif", m_aif_type, "Must be signal, conc or orton");
+        throw InvalidOptionValue("aif", m_aif_type, "Must be signal, conc, parker or orton");
     }
 
     // Standard DCE model parameters. All of these can be inferred if required
@@ -130,7 +134,9 @@ void DCEFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
 
 static int fit_step(const ColumnVector &data)
 {
-    // MSC method - fit a step function to the DCE signal to estimate the delay parameter
+    // MSC method for initializing delay parameter.
+    // We fit a step function to the DCE signal to estimate the delay. Otherwise the
+    // delay can be problematic to infer.
     double best_ssq = -1;
     int step_pos = 0;
     for (int pos=1; pos<data.Nrows(); pos++) {
@@ -156,6 +162,8 @@ void DCEFwdModel::InitVoxelPosterior(MVNDist &posterior) const
 {
     int delay_idx = m_sig0_idx;
     if (m_infer_sig0) {
+        // FIXME this is no longer correct initialization for sig0 since it is
+        // now the fully-relaxed signal
         posterior.means(m_sig0_idx+1) = data(1);
         delay_idx++;
     }
@@ -268,6 +276,33 @@ double DCEFwdModel::OrtonAIF(double t) const
     }
 }
 
+// Parker et al 2006: Equation 1
+double DCEFwdModel::ParkerAIF(double t) const
+{
+    double A1 = 0.809;  // mmol * min
+    double T1 = 0.17046;  // min
+    double sigma1 = 0.0563;  // min
+    
+    double A2 = 0.330; // mmol * min
+    double T2 = 0.365;  // min
+    double sigma2 = 0.132; // min
+    
+    double alpha = 1.050; // mmol
+    double beta = 0.1685; // min-1
+    double s = 38.078; // min-1
+    double tau = 0.483; // min
+
+    // This is the summation terms. Two Gaussians
+    double sum_term_1 = A1 * exp(-(t - T1)*(t - T1) / (2*sigma1*sigma1)) / (sigma1*sqrt(2*M_PI));
+    double sum_term_2 = A2 * exp(-(t - T2)*(t - T2) / (2*sigma2*sigma2)) / (sigma2*sqrt(2*M_PI));
+
+    // This is the exponential modulated with a sigmoid function term of Equation 1
+    double sigmoid_term = alpha * exp(-beta * t) / (1 + exp(-s * (t - tau)));
+
+    // Put them together
+    return sum_term_1 + sum_term_2 + sigmoid_term; // unit of result should be mmol
+}
+
 double DCEFwdModel::AIF(double t) const
 {
     if (t <= 0) 
@@ -277,6 +312,10 @@ double DCEFwdModel::AIF(double t) const
     else if (m_aif_type == "orton") 
     {
         return OrtonAIF(t);
+    }
+    else if (m_aif_type == "parker") 
+    {
+        return ParkerAIF(t);
     }
     else 
     {
