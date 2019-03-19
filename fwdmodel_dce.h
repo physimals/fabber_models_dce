@@ -55,7 +55,7 @@ protected:
     NEWMAT::ColumnVector m_aif;
 
     // Other options
-    mutable int m_sig0_idx = -1;
+    mutable int m_sig0_idx;
     bool m_auto_init_delay;
 
     // Orton AIF parameters
