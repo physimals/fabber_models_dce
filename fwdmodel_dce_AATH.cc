@@ -99,7 +99,7 @@ ColumnVector DCE_AATH_FwdModel::compute_concentration(double delay, double fp, d
     // Do convolution.
     //ColumnVector exp_term(data.Nrows());
     //for (int t_index = 0; t_index < data.Nrows(); t_index++) {
-    //    double current_t_value = t_index * m_dt - m_delay;
+    //    double current_t_value = t_index * m_dt - delay;
     //    exp_term(t_index + 1) = exp(-k_adb * current_t_value);
     //}
     //ColumnVector convolution_result = compute_convolution_matrix(aif, exp_term);

@@ -106,7 +106,7 @@ ColumnVector DCE_CTU_FwdModel::compute_concentration(double delay, double fp, do
         ColumnVector bracket_term(data.Nrows());
 
         for (int t_index = 0; t_index < data.Nrows(); t_index++) {
-            double current_t_value = t_index * m_dt - m_delay;
+            double current_t_value = t_index * m_dt - delay;
             bracket_term(t_index + 1) = fp * exp(-current_t_value / Tp) + ktrans * (1 - exp(-current_t_value / Tp));
             current_concentration(t_index + 1) = 0.0; // Initialize the concentration result vector. It seems that C++ likes this. :O
         }
