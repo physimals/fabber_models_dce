@@ -22,13 +22,10 @@ static OptionSpec OPTIONS[] = {
     { "t10", OPT_FLOAT, "Baseline T1 value in seconds. May be inferred.", OPT_NONREQ, "1" },
     { "sig0", OPT_FLOAT, "Baseline signal. This value is ignored if sig0 is inferred.", OPT_NONREQ, "1" },
     { "delay", OPT_FLOAT, "Injection time (or delay time when using measured AIF) in minutes. May be inferred.", OPT_NONREQ, "0" },
-    { "vp", OPT_FLOAT, "Fractional volume of blood plasma (Vp) in tissue", OPT_NONREQ, "0" },
     { "infer-t10", OPT_BOOL, "Infer t10 value", OPT_NONREQ, "" },
     { "infer-sig0", OPT_BOOL, "Infer baseline signal", OPT_NONREQ, "" },
     { "infer-delay", OPT_BOOL, "Infer the delay parameter", OPT_NONREQ, "" },
-    { "infer-vp", OPT_BOOL, "Infer the Vp parameter", OPT_NONREQ, "" },
-    { "infer-ve", OPT_BOOL, "Infer Ve rather than kep. Normally inferring kep is more numerically stable.", OPT_NONREQ, "" },
-    
+
     { "aif", OPT_STR, "Source of AIF function: orton=Orton (2008) population AIF, parker=Parker (2006) population AIF, signal=User-supplied vascular signal, conc=User-supplied concentration curve", OPT_REQ, "none"},
     { "aif-file", OPT_FILE,
         "File containing single-column ASCII data defining the AIF. For aif=signal, this is the vascular signal curve. For aif=conc, it should be the blood plasma concentration curve",
