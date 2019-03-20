@@ -127,7 +127,7 @@ void DCEFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
     m_sig0_idx = params.size();
     unsigned int p = m_sig0_idx;
     if (m_infer_sig0)
-        params.push_back(Parameter(p++, "sig0", DistParams(1, 1e8), DistParams(1, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+        params.push_back(Parameter(p++, "sig0", DistParams(m_sig0, 1e8), DistParams(m_sig0, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
     if (m_infer_delay)
         params.push_back(Parameter(p++, "delay", DistParams(m_delay, 100), DistParams(m_delay, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
     if (m_infer_t10)
@@ -164,9 +164,13 @@ void DCEFwdModel::InitVoxelPosterior(MVNDist &posterior) const
 {
     int delay_idx = m_sig0_idx;
     if (m_infer_sig0) {
-        // FIXME this is no longer correct initialization for sig0 since it is
-        // now the fully-relaxed signal
-        posterior.means(m_sig0_idx+1) = data(1);
+        // Note that sig0 is the fully relaxed signal - not the
+        // raw MRI signal. So to estimate it from the data we 
+        // need this correction.
+        double sig0_data = data(1);
+        double E10 = exp(-m_tr / m_t10);
+        double sig0_relaxed = sig0_data * (1 - cos(m_fa) * E10) / (sin(m_fa) * (1 - E10));
+        posterior.means(m_sig0_idx+1) = sig0_relaxed;
         delay_idx++;
     }
     if (m_infer_delay && m_auto_init_delay) {
