@@ -45,6 +45,7 @@ static OptionSpec OPTIONS[] = {
 
 void DCE_CTU_FwdModel::GetOptions(vector<OptionSpec> &opts) const
 {
+    DCEFwdModel::GetOptions(opts);
     for (int i = 0; OPTIONS[i].name != ""; i++)
     {
         opts.push_back(OPTIONS[i]);
