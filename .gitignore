@@ -4,3 +4,4 @@ depend.mk
 fabber_dce
 build*
 test/*.nii
+doc/html
