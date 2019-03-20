@@ -29,6 +29,7 @@ static OptionSpec OPTIONS[] = {
     { "infer-vp", OPT_BOOL, "Infer the Vp parameter", OPT_NONREQ, "" },
     { "infer-ve", OPT_BOOL, "Infer Ve rather than kep. Normally inferring kep is more numerically stable.", OPT_NONREQ, "" },
 
+    
     { "aif", OPT_STR, "Source of AIF function: orton=Orton (2008) population AIF, signal=User-supplied vascular signal, conc=User-supplied concentration curve", OPT_REQ, "none" },
     { "aif-file", OPT_FILE,
         "File containing single-column ASCII data defining the AIF. For aif=signal, this is the vascular signal curve. For aif=conc, it should be the blood plasma concentration curve",
@@ -110,6 +111,8 @@ void DCEFwdModel::Initialize(FabberRunData &rundata)
     m_infer_t10 = rundata.ReadBool("infer-t10");
     m_infer_sig0 = rundata.ReadBool("infer-sig0");
     m_infer_delay = rundata.ReadBool("infer-delay");
+
+
 
     // Automatically initialise delay posterior
     m_auto_init_delay = rundata.ReadBool("auto-init-delay");

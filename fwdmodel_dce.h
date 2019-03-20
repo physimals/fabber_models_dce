@@ -50,7 +50,7 @@ protected:
 
     // Inference flags
     bool m_infer_delay, m_infer_t10, m_infer_sig0;
-
+    
     // AIF as concentration curve
     NEWMAT::ColumnVector m_aif;
 

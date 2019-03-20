@@ -43,7 +43,13 @@ public:
     
 private:
     // Initial values of model parameters - always inferred
-    double m_fp, m_ps, m_ve, m_vp;
+    double m_ve, m_vp;
+
+    // Initial values of model parameters - at least one of them needs to be inferred
+    double m_fp, m_ps;
+
+    // Inference flags
+    bool m_infer_fp_AATH, m_infer_ps_AATH;
 
     NEWMAT::ColumnVector compute_concentration(const double delay, const double Fp, const double PS, const double Vp, const double Ve) const;
     NEWMAT::ColumnVector compute_convolution_matrix(const NEWMAT::ColumnVector &term_1, const NEWMAT::ColumnVector &term_2) const;
