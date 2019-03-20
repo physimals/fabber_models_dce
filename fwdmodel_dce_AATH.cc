@@ -36,7 +36,9 @@ std::string DCE_AATH_FwdModel::GetDescription() const
 }
 
 static OptionSpec OPTIONS[] = {
+    { "infer-fp_AATH", OPT_BOOL, "Infer Fp in AATH model.", OPT_NONREQ, "" },
     { "fp", OPT_FLOAT, "Flow in min-1", OPT_NONREQ, "0.3" },
+    { "infer-ps_AATH", OPT_BOOL, "Infer PS in AATH model.", OPT_NONREQ, "" },
     { "ps", OPT_FLOAT, "Permeability surface area product in min-1", OPT_NONREQ, "0.3" },
     { "vp", OPT_FLOAT, "Plasma volume in decimal between zero and one", OPT_NONREQ, "0.3" },
     { "ve", OPT_FLOAT, "Extracellular space volume in decimal between zero and one", OPT_NONREQ, "0.3" },
@@ -60,6 +62,12 @@ void DCE_AATH_FwdModel::Initialize(FabberRunData &rundata)
     m_ps = rundata.GetDoubleDefault("ps", 0.3);
     m_vp = rundata.GetDoubleDefault("vp", 0.3);
     m_ve = rundata.GetDoubleDefault("ve", 0.3);
+
+    // ps and fp are AATH model parameters. At least one of them can be specified.
+    // Both of them can be estimated at the same time but will not be accurate due to a simple multiplication problem
+    // a * b = c. We can't estimate a or b by just knowing c.
+    m_infer_fp_AATH = rundata.ReadBool("infer-fp_AATH");
+    m_infer_ps_AATH = rundata.ReadBool("infer-ps_AATH");
 }
 
 void DCE_AATH_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
@@ -68,8 +76,12 @@ void DCE_AATH_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) con
 
     // Basic model parameters
     int p=0;
-    params.push_back(Parameter(p++, "fp", DistParams(m_fp, 100), DistParams(m_fp, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
-    params.push_back(Parameter(p++, "ps", DistParams(m_ps, 100), DistParams(m_ps, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+    if (m_infer_fp_AATH) {
+        params.push_back(Parameter(p++, "fp", DistParams(m_fp, 100), DistParams(m_fp, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+    }
+    if (m_infer_ps_AATH) {
+        params.push_back(Parameter(p++, "ps", DistParams(m_ps, 100), DistParams(m_ps, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+    }
     params.push_back(Parameter(p++, "ve", DistParams(m_ve, 10), DistParams(m_ve, 10), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     params.push_back(Parameter(p++, "vp", DistParams(m_vp, 10), DistParams(m_vp, 10), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     
@@ -81,6 +93,9 @@ ColumnVector DCE_AATH_FwdModel::compute_concentration(double delay, double fp, d
 {   
     if(ve == 0) {
         ve = 0.0001;
+    }
+    if(ve == 1) {
+        ve = 0.9999;
     }
     if(fp == 0) {
         fp = 0.0001;
@@ -167,8 +182,14 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector &params, ColumnVector &resul
 {
     // Parameters that are inferred - extract and give sensible names
     int p = 1;
-    double fp = params(p++);
-    double ps = params(p++);
+    double fp = m_fp;
+    double ps = m_ps;
+    if (m_infer_fp_AATH) {
+        fp = params(p++);
+    }
+    if (m_infer_ps_AATH) {
+        ps = params(p++);
+    }
     double ve = params(p++);
     double vp = params(p++);
 
