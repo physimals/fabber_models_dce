@@ -56,7 +56,7 @@ void DCEStdToftsFwdModel::Initialize(FabberRunData &rundata)
 {
     DCEFwdModel::Initialize(rundata);
 
-    m_ktrans = rundata.GetDoubleDefault("ktrans", 0.3);
+    m_ktrans = rundata.GetDoubleDefault("ktrans", 0.5);
     m_infer_kep = rundata.ReadBool("infer-kep");
     if (m_infer_kep) 
     {
@@ -64,11 +64,12 @@ void DCEStdToftsFwdModel::Initialize(FabberRunData &rundata)
     }
     else 
     {
-        m_ve = rundata.GetDoubleDefault("ve", 0.3);
+        m_ve = rundata.GetDoubleDefault("ve", 0.5);
     }
 
-    m_vp = rundata.GetDoubleDefault("vp", 0);
     m_infer_vp = rundata.ReadBool("infer-vp");
+    m_vp = rundata.GetDoubleDefault("vp", m_infer_vp ? 0.05 : 0);
+
     m_force_conv = rundata.ReadBool("force-conv");
 }
 
@@ -78,21 +79,21 @@ void DCEStdToftsFwdModel::GetParameterDefaults(std::vector<Parameter> &params) c
 
     // Model parameters
     int p=0;
-    params.push_back(Parameter(p++, "ktrans", DistParams(m_ktrans, 100), DistParams(m_ktrans, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+    params.push_back(Parameter(p++, "ktrans", DistParams(m_ktrans, 1e5), DistParams(m_ktrans, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
     
     if (m_infer_kep) 
     {
         double kep = m_ktrans / m_ve;
-        params.push_back(Parameter(p++, "kep", DistParams(kep, 100), DistParams(kep, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+        params.push_back(Parameter(p++, "kep", DistParams(kep, 1e5), DistParams(kep, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
     }
     else 
     {
-        params.push_back(Parameter(p++, "ve", DistParams(m_ve, 10), DistParams(m_ve, 10), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
+        params.push_back(Parameter(p++, "ve", DistParams(m_ve, 1), DistParams(m_ve, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     }
 
     if (m_infer_vp)
     {
-        params.push_back(Parameter(p++, "vp", DistParams(max(m_vp, 0.05), 10), DistParams(max(m_vp, 0.05), 10), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
+        params.push_back(Parameter(p++, "vp", DistParams(m_vp, 1), DistParams(m_vp, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     }
 
     // Standard DCE parameters

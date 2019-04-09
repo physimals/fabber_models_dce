@@ -57,9 +57,9 @@ void DCE_CTU_FwdModel::Initialize(FabberRunData &rundata)
     DCEFwdModel::Initialize(rundata);
     
     // Initial values of the parameters
-    m_fp = rundata.GetDoubleDefault("fp", 0.3);
-    m_ps = rundata.GetDoubleDefault("ps", 0.3);
-    m_vp = rundata.GetDoubleDefault("vp", 0.3);
+    m_fp = rundata.GetDoubleDefault("fp", 0.5);
+    m_ps = rundata.GetDoubleDefault("ps", 0.5);
+    m_vp = rundata.GetDoubleDefault("vp", 0.05);
 
     // Other model options
     m_conv_method = rundata.GetStringDefault("conv-method", "trapezium");
@@ -71,9 +71,9 @@ void DCE_CTU_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) cons
 
     // Basic model parameters
     int p=0;
-    params.push_back(Parameter(p++, "fp", DistParams(m_fp, 100), DistParams(m_fp, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
-    params.push_back(Parameter(p++, "ps", DistParams(m_ps, 100), DistParams(m_ps, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
-    params.push_back(Parameter(p++, "vp", DistParams(m_vp, 10), DistParams(m_vp, 10), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
+    params.push_back(Parameter(p++, "fp", DistParams(m_fp, 1e5), DistParams(m_fp, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
+    params.push_back(Parameter(p++, "ps", DistParams(m_ps, 1e5), DistParams(m_ps, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
+    params.push_back(Parameter(p++, "vp", DistParams(m_vp, 1), DistParams(m_vp, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     
     // Standard DCE parameters
     DCEFwdModel::GetParameterDefaults(params);

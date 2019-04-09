@@ -36,12 +36,12 @@ std::string DCE_AATH_FwdModel::GetDescription() const
 }
 
 static OptionSpec OPTIONS[] = {
-    { "infer-fp_AATH", OPT_BOOL, "Infer Fp in AATH model.", OPT_NONREQ, "" },
     { "fp", OPT_FLOAT, "Flow in min-1", OPT_NONREQ, "0.3" },
-    { "infer-ps_AATH", OPT_BOOL, "Infer PS in AATH model.", OPT_NONREQ, "" },
     { "ps", OPT_FLOAT, "Permeability surface area product in min-1", OPT_NONREQ, "0.3" },
     { "vp", OPT_FLOAT, "Plasma volume in decimal between zero and one", OPT_NONREQ, "0.3" },
     { "ve", OPT_FLOAT, "Extracellular space volume in decimal between zero and one", OPT_NONREQ, "0.3" },
+    { "infer-fp", OPT_BOOL, "Infer Fp. We do not recommend inferring both fp and ps in this model", OPT_NONREQ, "" },
+    { "infer-ps", OPT_BOOL, "Infer PS. We do not recommend inferring both fp and ps in this model", OPT_NONREQ, "" },
     { "" },
 };
 
@@ -59,16 +59,16 @@ void DCE_AATH_FwdModel::Initialize(FabberRunData &rundata)
     DCEFwdModel::Initialize(rundata);
     
     // Initial values of main parameters
-    m_fp = rundata.GetDoubleDefault("fp", 0.3);
-    m_ps = rundata.GetDoubleDefault("ps", 0.3);
-    m_vp = rundata.GetDoubleDefault("vp", 0.3);
-    m_ve = rundata.GetDoubleDefault("ve", 0.3);
+    m_fp = rundata.GetDoubleDefault("fp", 0.5);
+    m_ps = rundata.GetDoubleDefault("ps", 0.5);
+    m_ve = rundata.GetDoubleDefault("ve", 0.5);
+    m_vp = rundata.GetDoubleDefault("vp", 0.05);
 
     // ps and fp are AATH model parameters. At least one of them can be specified.
     // Both of them can be estimated at the same time but will not be accurate due to a simple multiplication problem
     // a * b = c. We can't estimate a or b by just knowing c.
-    m_infer_fp_AATH = rundata.ReadBool("infer-fp_AATH");
-    m_infer_ps_AATH = rundata.ReadBool("infer-ps_AATH");
+    m_infer_fp = rundata.ReadBool("infer-fp");
+    m_infer_ps = rundata.ReadBool("infer-ps");
 }
 
 void DCE_AATH_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
@@ -77,14 +77,14 @@ void DCE_AATH_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) con
 
     // Basic model parameters
     int p=0;
-    if (m_infer_fp_AATH) {
-        params.push_back(Parameter(p++, "fp", DistParams(m_fp, 100), DistParams(m_fp, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+    if (m_infer_fp) {
+        params.push_back(Parameter(p++, "fp", DistParams(m_fp, 1e5), DistParams(m_fp, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
     }
-    if (m_infer_ps_AATH) {
-        params.push_back(Parameter(p++, "ps", DistParams(m_ps, 100), DistParams(m_ps, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+    if (m_infer_ps) {
+        params.push_back(Parameter(p++, "ps", DistParams(m_ps, 1e5), DistParams(m_ps, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
     }
-    params.push_back(Parameter(p++, "ve", DistParams(m_ve, 10), DistParams(m_ve, 10), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
-    params.push_back(Parameter(p++, "vp", DistParams(m_vp, 10), DistParams(m_vp, 10), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
+    params.push_back(Parameter(p++, "ve", DistParams(m_ve, 1), DistParams(m_ve, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
+    params.push_back(Parameter(p++, "vp", DistParams(m_vp, 1), DistParams(m_vp, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     
     // Standard DCE parameters
     DCEFwdModel::GetParameterDefaults(params);
@@ -185,10 +185,10 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector &params, ColumnVector &resul
     int p = 1;
     double fp = m_fp;
     double ps = m_ps;
-    if (m_infer_fp_AATH) {
+    if (m_infer_fp) {
         fp = params(p++);
     }
-    if (m_infer_ps_AATH) {
+    if (m_infer_ps) {
         ps = params(p++);
     }
     double ve = params(p++);
