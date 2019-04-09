@@ -11,7 +11,7 @@ TEST_DATA = {
         {
             "convergence" : "trialmode",
             "max-trials" : 20,
-            "max-iterations" : "30", 
+            "max-iterations" : 30, 
             "aif" : "orton", 
             "delt" : 0.1, 
             "fa" : 12, 
@@ -21,14 +21,13 @@ TEST_DATA = {
             "sig0" : 10000,
         }, # Model options
         {
-            "ktrans" : [0.01, 0.02, 0.05, 0.1, 0.2, 0.4, 0.8],
-            "ve" : [0.01, 0.02, 0.05, 0.1, 0.2, 0.4, 0.8],
-            #"vp" : 0.5,
+            "ktrans" : [0.05, 0.1, 0.2, 0.4, 0.8],
+            "ve" : [0.05, 0.1, 0.2, 0.4, 0.8],
         }, 
         {
             "nt" : 25,
-            "patchsize" : 2,
-            "noise" : 10,
+            "patchsize" : 5,
+            "noise" : 5,
         } # Other options
     ]
 }

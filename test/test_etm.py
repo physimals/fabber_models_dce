@@ -7,11 +7,11 @@ import math
 from fabber import self_test, FabberException
 
 TEST_DATA = {
-    "dce_2CXM" : [
+    "dce_tofts" : [
         {
             "convergence" : "trialmode",
-            "max-trials" : 50,
-            "max-iterations" : 100, 
+            "max-trials" : 20,
+            "max-iterations" : 30, 
             "aif" : "orton", 
             "delt" : 0.1, 
             "fa" : 12, 
@@ -19,12 +19,12 @@ TEST_DATA = {
             "r1" : 4.5,
             "delay" : 0.5,
             "sig0" : 10000,
+            "infer-vp" : True,
         }, # Model options
         {
-            "fp" : [0.05, 0.1, 0.2, 0.4, 0.8],
+            "ktrans" : [0.05, 0.1, 0.2, 0.4, 0.8],
             "ve" : [0.05, 0.1, 0.2, 0.4, 0.8],
             "vp" : 0.01,
-            "ps" : 0.5,
         }, 
         {
             "nt" : 25,
