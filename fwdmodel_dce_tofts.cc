@@ -88,7 +88,7 @@ void DCEStdToftsFwdModel::GetParameterDefaults(std::vector<Parameter> &params) c
     }
     else 
     {
-        params.push_back(Parameter(p++, "ve", DistParams(m_ve, 1), DistParams(m_ve, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
+        params.push_back(Parameter(p++, "ve", DistParams(m_ve, 1e5), DistParams(m_ve, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     }
 
     if (m_infer_vp)
