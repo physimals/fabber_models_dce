@@ -27,11 +27,11 @@ static OptionSpec OPTIONS[] = {
     { "infer-delay", OPT_BOOL, "Infer the delay parameter", OPT_NONREQ, "" },
 
     { "aif", OPT_STR, "Source of AIF function: orton=Orton (2008) population AIF, parker=Parker (2006) population AIF, signal=User-supplied vascular signal, conc=User-supplied concentration curve", OPT_REQ, "none"},
-    { "aif-file", OPT_FILE,
+    { "aif-data", OPT_MATRIX,
         "File containing single-column ASCII data defining the AIF. For aif=signal, this is the vascular signal curve. For aif=conc, it should be the blood plasma concentration curve",
         OPT_NONREQ, "none" },
-    { "aif-hct", OPT_FLOAT, "Haematocrit value to use when converting an AIF signal to concentration. Used when aif=sig", OPT_NONREQ, "0.45" },
-    { "aif-t1b", OPT_FLOAT, "Blood T1 value to use when converting an AIF signal to concentration. Used when aif=sig", OPT_NONREQ, "1.4" },
+    { "aif-hct", OPT_FLOAT, "Haematocrit value to use when converting an AIF signal to concentration. Used when aif=signal", OPT_NONREQ, "0.45" },
+    { "aif-t1b", OPT_FLOAT, "Blood T1 value to use when converting an AIF signal to concentration. Used when aif=signal", OPT_NONREQ, "1.4" },
     { "aif-ab", OPT_FLOAT, "aB parameter for Orton AIF in mM. Used when aif=orton", OPT_NONREQ, "2.84" },
     { "aif-ag", OPT_FLOAT, "aG parameter for Orton AIF in min^-1. Used when aif=orton", OPT_NONREQ, "1.36" },
     { "aif-mub", OPT_FLOAT, "MuB parameter for Orton AIF in min^-1. Used when aif=orton", OPT_NONREQ, "22.8" },
@@ -74,7 +74,7 @@ void DCEFwdModel::Initialize(FabberRunData &rundata)
     if (m_aif_type == "signal")
     {
         // Convert AIF signal to concentration curve
-        ColumnVector aif_sig = read_ascii_matrix(rundata.GetString("aif-file"));
+        ColumnVector aif_sig = read_ascii_matrix(rundata.GetString("aif-data"));
         double aif_t1 = rundata.GetDoubleDefault("aif-t1", 1.4);
         double aif_hct = rundata.GetDoubleDefault("aif-hct", 0.45);
         double aif_sig0 = aif_sig(1);
@@ -86,7 +86,7 @@ void DCEFwdModel::Initialize(FabberRunData &rundata)
     }
     else if (m_aif_type == "conc")
     {
-        m_aif = read_ascii_matrix(rundata.GetString("aif-file"));
+        m_aif = read_ascii_matrix(rundata.GetString("aif-data"));
     }
     else if (m_aif_type == "orton")
     {
@@ -111,8 +111,6 @@ void DCEFwdModel::Initialize(FabberRunData &rundata)
     m_infer_t10 = rundata.ReadBool("infer-t10");
     m_infer_sig0 = rundata.ReadBool("infer-sig0");
     m_infer_delay = rundata.ReadBool("infer-delay");
-
-
 
     // Automatically initialise delay posterior
     m_auto_init_delay = rundata.ReadBool("auto-init-delay");
