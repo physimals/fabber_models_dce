@@ -49,7 +49,7 @@ private:
     double m_fp, m_ps;
 
     // Inference flags
-    bool m_infer_fp_AATH, m_infer_ps_AATH;
+    bool m_infer_fp, m_infer_ps;
 
     NEWMAT::ColumnVector compute_concentration(const double delay, const double Fp, const double PS, const double Vp, const double Ve) const;
     NEWMAT::ColumnVector compute_convolution_matrix(const NEWMAT::ColumnVector &term_1, const NEWMAT::ColumnVector &term_2) const;
