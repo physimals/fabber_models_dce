@@ -8,23 +8,11 @@ set(MODELS_SRC
     fwdmodel_dce.h
     fwdmodel_dce_2CXM.cc
     fwdmodel_dce_2CXM.h
-    fwdmodel_dce_2CXM_LLS.cc
-    fwdmodel_dce_2CXM_LLS.h
     fwdmodel_dce_AATH.cc
     fwdmodel_dce_AATH.h
     fwdmodel_dce_CTU.cc
-    fwdmodel_dce_CTU.h
-    fwdmodel_dce_CTU_LLS.cc
-    fwdmodel_dce_CTU_LLS.h
-    fwdmodel_dce_ETM.cc
-    fwdmodel_dce_ETM.h
-    fwdmodel_dce_ETM_LLS.cc
-    fwdmodel_dce_ETM_LLS.h
-    fwdmodel_dce_LLS.cc
-    fwdmodel_dce_LLS.h
-    fwdmodel_dce_Patlak.cc
-    fwdmodel_dce_Patlak.h)
-    
+    fwdmodel_dce_CTU.h)
+        
 add_library(fabber_models_${MODELS_NAME} SHARED ${MODELS_SRC} ${MODELS_NAME}_models.cc)
 add_executable(fabber_${MODELS_NAME} ${MODELS_SRC} fabber_client.cc)
 
