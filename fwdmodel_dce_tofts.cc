@@ -111,7 +111,7 @@ ColumnVector DCEStdToftsFwdModel::GetConcentrationMeasuredAif(double delay, doub
         {
             f(t_idx + 1) = 0;
         }
-        else 
+        else
         {
             // Convolution integral: I=INTEGRAL{aif(t)*exp(-kep(t-tau)*dt) }
             double I = 0;

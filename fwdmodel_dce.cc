@@ -82,6 +82,7 @@ void DCEFwdModel::Initialize(FabberRunData &rundata)
         for (int t = 0; t < m_aif.Nrows(); t++)
         {
             m_aif(t + 1) = ConcentrationFromSignal(aif_sig(t + 1), aif_sig0, aif_t1, aif_hct);
+            LOG << "AIF: t=" << t << ", signal=" << aif_sig(t+1) << ", conc=" << m_aif(t+1) << endl;
         }
     }
     else if (m_aif_type == "conc")
@@ -124,7 +125,7 @@ void DCEFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
     if (m_infer_sig0)
         params.push_back(Parameter(p++, "sig0", DistParams(m_sig0, 1e8), DistParams(m_sig0, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
     if (m_infer_delay)
-        params.push_back(Parameter(p++, "delay", DistParams(m_delay, 100), DistParams(m_delay, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
+        params.push_back(Parameter(p++, "delay", DistParams(m_delay, 0.25), DistParams(m_delay, 0.25)));
     if (m_infer_t10)
         params.push_back(Parameter(p++, "t10", DistParams(m_t10, 1), DistParams(m_t10, 1), PRIOR_NORMAL, TRANSFORM_ABS()));
 }
@@ -137,13 +138,16 @@ static int fit_step(const ColumnVector &data)
     double best_ssq = -1;
     int step_pos = 0;
     for (int pos=1; pos<data.Nrows(); pos++) {
-        double mean_left = data.Rows(1, pos).Sum() / pos;
-        double mean_right = data.Rows(pos+1, data.Nrows()).Sum() / (data.Nrows() - pos);
+        // Fit step based on data +/- 5 pts
+        int window_start = max(1, pos-5);
+        int window_end = min(data.Nrows(), pos+5);
+        double mean_left = data.Rows(window_start, pos).Sum() / (pos - window_start);
+        double mean_right = data.Rows(pos+1, window_end).Sum() / (window_end - pos);
         double ssq = 0;
-        for (int t=1; t<=pos; t++) {
+        for (int t=1; t<=window_start; t++) {
             ssq += (data(t) - mean_left)*(data(t) - mean_left);
         }
-        for (int t=pos+1; t<=data.Nrows(); t++) {
+        for (int t=pos+1; t<=window_end; t++) {
             ssq += (data(t) - mean_right)*(data(t) - mean_right);
         }
         if ((ssq < best_ssq) || (best_ssq < 0)) {
@@ -155,74 +159,73 @@ static int fit_step(const ColumnVector &data)
     return step_pos-1;
 }
 
+int DCEFwdModel::fit_bat(const ColumnVector &data) const
+{
+    int max_pos;
+    double max_val = data.Maximum1(max_pos);
+    double best_ssq = 1e10;
+    int best_pos = 0;
+
+    for (int pos=1; pos<max_pos; pos++) {
+        // All point up to and including 'pos' are considered
+        // baseline. Points from pos to max_pos are considered
+        // as 'uptake' and fitted to a line. Best fit wins
+        // as prediction for BAT
+        LOG << pos << ", " << max_pos << endl;
+        ColumnVector horiz = data.Rows(1, pos);
+        ColumnVector uptake = data.Rows(pos+1, max_pos);
+        double horiz_mean = horiz.Sum() / pos;
+        double ssq_horiz = (horiz - horiz_mean).SumSquare();
+
+        double uptake_ymean = uptake.Sum() / (max_pos - pos);
+        double uptake_xmean = (pos+1+max_pos) / 2;
+        double m = 0;
+        double xds = 0;
+        for (int uptake_pos=pos+1; uptake_pos<=max_pos; uptake_pos++) 
+        {
+            m += (uptake_pos - uptake_xmean)*(data(uptake_pos) - uptake_ymean);
+            xds += (uptake_pos - uptake_xmean)*(uptake_pos - uptake_xmean);
+        }
+        m /= xds;
+        double c = uptake_ymean - m*uptake_xmean;
+
+        for (int uptake_pos=pos+1; uptake_pos<=max_pos; uptake_pos++) 
+        {
+            uptake(uptake_pos-pos) -= m*uptake_pos + c;
+        }
+        double ssq_uptake = uptake.SumSquare();
+        LOG << "Pos: " << pos << ", max pos=" << max_pos << " uptake: y=" << m << "x + " << c << ", baseline ssq=" << ssq_horiz << ", uptake ssq=" << ssq_uptake << endl;
+        double ssq=ssq_horiz + ssq_uptake;
+        if (ssq < best_ssq) 
+        {
+            best_ssq = ssq;
+            best_pos = pos;
+        } 
+    }
+
+    return best_pos;
+}
+
 void DCEFwdModel::InitVoxelPosterior(MVNDist &posterior) const
 {
     int delay_idx = m_sig0_idx;
     if (m_infer_sig0) {
-        // Note that sig0 is the fully relaxed signal - not the
-        // raw MRI signal. So to estimate it from the data we 
-        // need this correction.
         double sig0_data = data(1);
-        double E10 = exp(-m_tr / m_t10);
-        double sig0_relaxed = sig0_data * (1 - cos(m_fa) * E10) / (sin(m_fa) * (1 - E10));
-        posterior.means(m_sig0_idx+1) = sig0_relaxed;
+        posterior.means(m_sig0_idx+1) = sig0_data;
         delay_idx++;
     }
     if (m_infer_delay && m_auto_init_delay) {
-        posterior.means(delay_idx+1) = m_dt * fit_step(data);
+        int step_pos = fit_bat(data);
+        LOG << "data step pos=" << step_pos << endl;
+        if ((m_aif_type == "signal") || (m_aif_type == "conc"))
+        {
+            int step_pos_aif = fit_bat(m_aif);
+            LOG << "AIF step pos=" << step_pos_aif << endl;
+            step_pos = step_pos - step_pos_aif;
+        }
+        posterior.means(delay_idx+1) = m_dt * step_pos;
+        LOG << "Initializing delay to " << step_pos << " (" << m_dt*step_pos << ")" << endl;
     }
-}
-
-/**
- * Get the AIF function taking into account the delay parameter
- *
- * Uses linear interpolation and makes assumptions where extrapolation is called for.
- */
-ColumnVector DCEFwdModel::aifshift(const ColumnVector &aif, const double delay) const
-{
-    // Don't bother if there is no delay
-    if (delay == 0) 
-    {
-        return aif;
-    }
-
-    // Number of whole time points of shift.
-    int nshift = int(floor(delay / m_dt));
-
-    // Fractional part of the shift
-    double fshift = (delay / m_dt) - nshift;
-
-    if (m_aif.Nrows() != data.Nrows())
-        throw InvalidOptionValue("aif", stringify(m_aif.Nrows()), "Must have " + stringify(data.Nrows()) + " rows to match input data");
-    
-    ColumnVector aifnew(m_aif);
-    int index;
-    for (int i = 1; i <= data.Nrows(); i++)
-    {
-        index = i - nshift;
-        if (index == 1)
-        {
-            // linear interpolation with zero as 'previous' time point. Only
-            // possible if delay is > 0, so fshift > 0
-            aifnew(i) = aif(1) * (1 - fshift);
-        }
-        else if (index < 1)
-        {
-            // Assume aif is zero before zeroth time point
-            aifnew(i) = 0;
-        }
-        else if (index > data.Nrows())
-        {
-            // Beyond the final time point - assume aif takes the value of the final time point
-            aifnew(i) = aif(data.Nrows());
-        }
-        else
-        {
-            //linear interpolation
-            aifnew(i) = aif(index) + (aif(index - 1) - aif(index)) * fshift;
-        }
-    }
-    return aifnew;
 }
 
 // This is the MR signal of spoiled gradient echo sequence
@@ -233,12 +236,15 @@ double DCEFwdModel::SignalFromConcentration(double C, double t10, double current
     double R1 = m_r1 * C + R10;
     double A = exp(-m_tr * R1);
 
-    return current_sig0 * sin(m_fa) * (1 - A) / (1 - cos(m_fa) * A);
+    double E10 = exp(-m_tr / t10);
+    double sig0_relaxed = current_sig0 * (1 - cos(m_fa) * E10) / (sin(m_fa) * (1 - E10));
+    return sig0_relaxed * sin(m_fa) * (1 - A) / (1 - cos(m_fa) * A);
 }
 
-// Appendix A in https://www.sciencedirect.com/science/article/pii/S0730725X10001748
+// DCE MRI Technical Committee. DCE MRI Quantification Profile, Quantitative Imaging Biomarkers Alliance
+// Version 1.0, QIBA July 1 2012.
+// Available from https://www.rsna.org/uploadedFiles/RSNA/Content/Science_and_Education/QIBA/DCE-MRI_Quantification_Profile_v1%200-ReviewedDraft%208-8-12.pdf
 // This is converting the signal of AIF into concentration values
-// Needs checking
 double DCEFwdModel::ConcentrationFromSignal(double s, double s0, double t10, double hct) const
 {
     double e10 = exp(-m_tr / t10);
@@ -246,7 +252,8 @@ double DCEFwdModel::ConcentrationFromSignal(double s, double s0, double t10, dou
     double sa = s / s0;
     double v = -log((1 - sa * b) / (1 - sa * b * cos(m_fa)));
     double r1 = v / m_tr;
-    return ((r1 - 1 / t10) / m_r1) / (1 - hct);
+    double c = ((r1 - 1 / t10) / m_r1) / (1 - hct);
+    return max(0.0, c);
 }
 
 // f(t, a) from Orton 2008 (Eq A.2)

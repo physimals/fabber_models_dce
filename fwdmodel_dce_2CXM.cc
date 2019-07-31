@@ -35,10 +35,10 @@ std::string DCE_2CXM_FwdModel::GetDescription() const
 }
 
 static OptionSpec OPTIONS[] = {
-    { "fp", OPT_FLOAT, "Flow in min-1", OPT_NONREQ, "0.3" },
-    { "ps", OPT_FLOAT, "Permeability surface area product in min-1", OPT_NONREQ, "0.3" },
-    { "vp", OPT_FLOAT, "Plasma volume in decimal between zero and one", OPT_NONREQ, "0.3" },
-    { "ve", OPT_FLOAT, "Extracellular space volume in decimal between zero and one", OPT_NONREQ, "0.3" },
+    { "fp", OPT_FLOAT, "Flow in min-1", OPT_NONREQ, "0.5" },
+    { "ps", OPT_FLOAT, "Permeability surface area product in min-1", OPT_NONREQ, "0.5" },
+    { "vp", OPT_FLOAT, "Plasma volume in decimal between zero and one", OPT_NONREQ, "0.5" },
+    { "ve", OPT_FLOAT, "Extracellular space volume in decimal between zero and one", OPT_NONREQ, "0.05" },
     { "conv-method", OPT_STR, "Method to compute convolution, trapezium, matrix or iterative. Default is iterative", OPT_REQ, "iterative"},
     { "" },
 };
