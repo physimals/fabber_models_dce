@@ -63,7 +63,6 @@ protected:
 
     double SignalFromConcentration(double C, double t10, double m0) const;
     double ConcentrationFromSignal(double s, double s0, double t10, double hct) const;
-    NEWMAT::ColumnVector aifshift(const NEWMAT::ColumnVector &aif, const double delay) const;
     double OrtonF(double t, double a) const;
     double OrtonAIF(double t) const;
     double ParkerAIF(double t) const;
