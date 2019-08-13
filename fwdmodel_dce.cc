@@ -31,7 +31,7 @@ static OptionSpec OPTIONS[] = {
         "File containing single-column ASCII data defining the AIF. For aif=signal, this is the vascular signal curve. For aif=conc, it should be the blood plasma concentration curve",
         OPT_NONREQ, "none" },
     { "aif-hct", OPT_FLOAT, "Haematocrit value to use when converting an AIF signal to concentration. Used when aif=signal", OPT_NONREQ, "0.45" },
-    { "aif-t1b", OPT_FLOAT, "Blood T1 value to use when converting an AIF signal to concentration. Used when aif=signal", OPT_NONREQ, "1.4" },
+    { "aif-t1", OPT_FLOAT, "Blood T1 value to use when converting an AIF signal to concentration. Used when aif=signal", OPT_NONREQ, "1.4" },
     { "aif-ab", OPT_FLOAT, "aB parameter for Orton AIF in mM. Used when aif=orton", OPT_NONREQ, "2.84" },
     { "aif-ag", OPT_FLOAT, "aG parameter for Orton AIF in min^-1. Used when aif=orton", OPT_NONREQ, "1.36" },
     { "aif-mub", OPT_FLOAT, "MuB parameter for Orton AIF in min^-1. Used when aif=orton", OPT_NONREQ, "22.8" },
