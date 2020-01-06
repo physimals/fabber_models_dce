@@ -159,9 +159,6 @@ void DCEFwdModel::InitVoxelPosterior(MVNDist &posterior) const
 {
     int delay_idx = m_sig0_idx;
     if (m_infer_sig0) {
-        // Note that sig0 is the fully relaxed signal - not the
-        // raw MRI signal. So to estimate it from the data we 
-        // need this correction.
         double sig0_data = data(1);
         posterior.means(m_sig0_idx+1) = sig0_data;
         delay_idx++;
