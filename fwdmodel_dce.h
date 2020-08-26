@@ -6,7 +6,7 @@
  *
  * Martin Craig, IBME
  *
- * Copyright (C) 2016 University of Oxford  
+ * Copyright (C) 2016 University of Oxford
  */
 
 /*  CCOPYRIGHT */
@@ -14,7 +14,7 @@
 
 #include "fabber_core/fwdmodel.h"
 
-#include <newmat.h>
+#include "armawrap/newmat.h"
 
 #include <string>
 #include <vector>
@@ -37,9 +37,9 @@ public:
 
     virtual void Initialize(FabberRunData &rundata);
     virtual void GetParameterDefaults(std::vector<Parameter> &params) const;
-    
+
     virtual void InitVoxelPosterior(MVNDist &posterior) const;
-    
+
 protected:
     // Mandatory DCE configuration
     double m_fa, m_tr, m_r1, m_dt;
@@ -50,7 +50,7 @@ protected:
 
     // Inference flags
     bool m_infer_delay, m_infer_t10, m_infer_sig0;
-    
+
     // AIF as concentration curve
     NEWMAT::ColumnVector m_aif;
 
