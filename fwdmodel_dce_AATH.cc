@@ -1,14 +1,14 @@
 /**
  * fwdmodel_dce_AATH.cc
  *
- * An Adiabatic Approximation to the Tissue Homogeneity Model for Water Exchange in the 
+ * An Adiabatic Approximation to the Tissue Homogeneity Model for Water Exchange in the
  * Brain: I. Theoretical Derivation
  *
  * https://journals.sagepub.com/doi/10.1097/00004647-199812000-00011
  *
  * Moss Zhao - IBME, Oxford
  *
- * Copyright (C) 2018 University of Oxford  
+ * Copyright (C) 2018 University of Oxford
  */
 
 /*  CCOPYRIGHT */
@@ -57,7 +57,7 @@ void DCE_AATH_FwdModel::GetOptions(vector<OptionSpec> &opts) const
 void DCE_AATH_FwdModel::Initialize(FabberRunData &rundata)
 {
     DCEFwdModel::Initialize(rundata);
-    
+
     // Initial values of main parameters
     m_fp = rundata.GetDoubleDefault("fp", 0.5);
     m_ps = rundata.GetDoubleDefault("ps", 0.05);
@@ -85,13 +85,13 @@ void DCE_AATH_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) con
     }
     params.push_back(Parameter(p++, "ve", DistParams(m_ve, 10), DistParams(m_ve, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     params.push_back(Parameter(p++, "vp", DistParams(m_vp, 10), DistParams(m_vp, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
-    
+
     // Standard DCE parameters
     DCEFwdModel::GetParameterDefaults(params);
 }
 
 ColumnVector DCE_AATH_FwdModel::compute_concentration(double delay, double fp, double ps, double vp, double ve) const
-{   
+{
     if(ve == 0) {
         ve = 0.0001;
     }
@@ -104,7 +104,7 @@ ColumnVector DCE_AATH_FwdModel::compute_concentration(double delay, double fp, d
 
     double E = 1 - exp(-ps / fp);
     double k_adb = E * fp / ve;
-    
+
     // Get possibly shifted AIF
     ColumnVector aif(data.Nrows());
     for (int t_idx=0; t_idx<data.Nrows(); t_idx++) {
@@ -120,7 +120,7 @@ ColumnVector DCE_AATH_FwdModel::compute_concentration(double delay, double fp, d
     //}
     //ColumnVector convolution_result = compute_convolution_matrix(aif, exp_term);
     ColumnVector convolution_result = compute_convolution_trap(delay, k_adb);
-    
+
     return vp * aif + E * fp * convolution_result;
 }
 
@@ -150,12 +150,12 @@ ColumnVector DCE_AATH_FwdModel::compute_convolution_trap(const double delay, con
     for (int t_idx = 0; t_idx < data.Nrows(); t_idx++)
     {
         double t = t_idx * m_dt - delay;
-        if (t <= 0) 
+        if (t <= 0)
         {
             // AIF strictly zero at t <= 0
             convolution_result(t_idx + 1) = 0;
         }
-        else 
+        else
         {
             // Convolution integral: INTEGRAL 0->t {AIF(t) * bracket_term(t-tau)} d tau
             double I = 0;
@@ -166,7 +166,7 @@ ColumnVector DCE_AATH_FwdModel::compute_convolution_trap(const double delay, con
                     I += AIF(tau) * exp(-k_adb * (t-tau));
                 }
             }
-            if (t_idx >= 1) 
+            if (t_idx >= 1)
             {
                 // Last point half contribution in trapezium rule. note first point
                 // is always zero since AIF(0) = 0
@@ -216,7 +216,7 @@ void DCE_AATH_FwdModel::Evaluate(const ColumnVector &params, ColumnVector &resul
     // Converts concentration back to MRI signal
     result.ReSize(data.Nrows());
     for (int i = 1; i <= data.Nrows(); i++)
-    {   
+    {
         result(i) = SignalFromConcentration(concentration_tissue(i), t10, sig0);
     }
 

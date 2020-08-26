@@ -1,11 +1,11 @@
 /**
- * fwdmodel_dce_tofts.cc 
+ * fwdmodel_dce_tofts.cc
  *
  * Standard and Extended Tofts model for DCE analysis
  *
  * Martin Craig, IBME
- * 
- * Copyright (C) 2008 University of Oxford  
+ *
+ * Copyright (C) 2008 University of Oxford
  */
 
 /*  CCOPYRIGHT */
@@ -58,11 +58,11 @@ void DCEStdToftsFwdModel::Initialize(FabberRunData &rundata)
 
     m_ktrans = rundata.GetDoubleDefault("ktrans", 0.5);
     m_infer_kep = rundata.ReadBool("infer-kep");
-    if (m_infer_kep) 
+    if (m_infer_kep)
     {
         m_ve = m_ktrans / rundata.GetDoubleDefault("kep", 1);
     }
-    else 
+    else
     {
         m_ve = rundata.GetDoubleDefault("ve", 0.5);
     }
@@ -80,13 +80,13 @@ void DCEStdToftsFwdModel::GetParameterDefaults(std::vector<Parameter> &params) c
     // Model parameters
     int p=0;
     params.push_back(Parameter(p++, "ktrans", DistParams(m_ktrans, 1e5), DistParams(m_ktrans, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
-    
-    if (m_infer_kep) 
+
+    if (m_infer_kep)
     {
         double kep = m_ktrans / m_ve;
         params.push_back(Parameter(p++, "kep", DistParams(kep, 1e5), DistParams(kep, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
     }
-    else 
+    else
     {
         params.push_back(Parameter(p++, "ve", DistParams(m_ve, 1e5), DistParams(m_ve, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     }
@@ -107,11 +107,11 @@ ColumnVector DCEStdToftsFwdModel::GetConcentrationMeasuredAif(double delay, doub
     for (int t_idx = 0; t_idx < data.Nrows(); t_idx++)
     {
         double t = t_idx * m_dt - delay;
-        if (t <= 0) 
+        if (t <= 0)
         {
             f(t_idx + 1) = 0;
         }
-        else 
+        else
         {
             // Convolution integral: I=INTEGRAL{aif(t)*exp(-kep(t-tau)*dt) }
             double I = 0;
@@ -123,7 +123,7 @@ ColumnVector DCEStdToftsFwdModel::GetConcentrationMeasuredAif(double delay, doub
                 }
             }
             // Final point for trapezium rule - note first point is always 0
-            if (t_idx >= 1) 
+            if (t_idx >= 1)
             {
                 I += AIF(t) / 2;
             }
@@ -178,7 +178,7 @@ void DCEStdToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     double kep, ve;
     if (m_infer_kep) {
         kep = params(p++);
-        ve = ktrans / kep;   
+        ve = ktrans / kep;
     }
     else {
         ve = params(p++);
@@ -210,7 +210,7 @@ void DCEStdToftsFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     }
 
     // Tissue concentration results
-    ColumnVector C; 
+    ColumnVector C;
     if ((m_aif_type == "orton") && !m_force_conv)
     {
         C = GetConcentrationOrton(delay, vp, ktrans, kep);
