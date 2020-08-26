@@ -11,7 +11,7 @@
 #include "newimage/newimageall.h"
 #include <complex>
 #include <iostream>
-#include <newmatio.h>
+#include "armawrap/newmat.h"
 #include <stdexcept>
 using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
