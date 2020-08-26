@@ -1,29 +1,15 @@
 include ${FSLCONFDIR}/default.mk
 
 PROJNAME = fabber_dce
-
-USRINCFLAGS = -I${INC_NEWMAT} -I${INC_PROB} -I${INC_CPROB} -I${INC_BOOST} -I..
-USRLDFLAGS = -L${LIB_NEWMAT} -L${LIB_PROB} -L../fabber_core
-
-FSLVERSION= $(shell cat ${FSLDIR}/etc/fslversion | head -c 1)
-ifeq ($(FSLVERSION), 5) 
-  NIFTILIB = -lfslio -lniftiio 
-  MATLIB = -lnewmat
-else 
-  UNAME := $(shell uname -s)
-  ifeq ($(UNAME), Linux)
-    MATLIB = -lopenblas
-  endif
-  NIFTILIB = -lNewNifti
-endif
-
-LIBS = -lnewimage -lmiscmaths -lutils -lprob ${MATLIB} ${NIFTILIB} -lznz -lz -ldl
-
+LIBS = -lfsl-fabbermodels_dce -lfsl-fabberexec -lfsl-fabbercore \
+       -lfsl-newimage -lfsl-miscmaths -lfsl-utils -lfsl-cprob \
+       -lfsl-NewNifti -lfsl-znz -ldl
 XFILES = fabber_dce
+SOFILES = libfsl-fabbermodels_dce.so
 
 # Forward models
 OBJS =  fwdmodel_dce.o fwdmodel_dce_CTU.o fwdmodel_dce_2CXM.o fwdmodel_dce_AATH.o fwdmodel_dce_tofts.o
-# Removed fwdmodel_dce_LLS.o fwdmodel_dce_Patlak.o fwdmodel_dce_ETM.o fwdmodel_dce_ETM_LLS.o fwdmodel_dce_CTU_LLS.o fwdmodel_dce_2CXM_LLS.o  
+# Removed fwdmodel_dce_LLS.o fwdmodel_dce_Patlak.o fwdmodel_dce_ETM.o fwdmodel_dce_ETM_LLS.o fwdmodel_dce_CTU_LLS.o fwdmodel_dce_2CXM_LLS.o
 
 # For debugging:
 #OPTFLAGS = -ggdb
@@ -37,14 +23,14 @@ CXXFLAGS += -DGIT_SHA1=\"${GIT_SHA1}\" -DGIT_DATE="\"${GIT_DATE}\""
 # Build
 #
 
-all:	${XFILES} libfabbermodels_dce.a
+all: ${XFILES} ${SOFILES}
 
 # models in a library
-libfabbermodels_dce.a : ${OBJS}
-	${AR} -r $@ ${OBJS}
+libfsl-fabbermodels_dce.so : ${OBJS}
+	$(CXX) $(CXXFLAGS) -shared -o $@ $^
 
 # fabber built from the FSL fabbercore library including the models specifieid in this project
-fabber_dce : fabber_client.o ${OBJS}
-	${CXX} ${CXXFLAGS} ${LDFLAGS} -o $@ $< ${OBJS} -lfabbercore -lfabberexec ${LIBS}
+fabber_dce : fabber_client.o libfsl-fabbermodels_dce.so
+	${CXX} ${CXXFLAGS} -o $@ $< ${LDFLAGS}
 
 # DO NOT DELETE
