@@ -4,7 +4,7 @@
  * Implementation of the non-linear least square solution of the two compartment exchange model
  *
  * https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.25991
- * 
+ *
  * Moss Zhao - IBME, Oxford
  *
  * Copyright (C) 2018 University of Oxford
@@ -55,7 +55,7 @@ void DCE_2CXM_FwdModel::GetOptions(vector<OptionSpec> &opts) const
 void DCE_2CXM_FwdModel::Initialize(FabberRunData &rundata)
 {
     DCEFwdModel::Initialize(rundata);
-    
+
     // Initial values of main parameters
     m_fp = rundata.GetDoubleDefault("fp", 0.5);
     m_ps = rundata.GetDoubleDefault("ps", 0.05);
@@ -76,7 +76,7 @@ void DCE_2CXM_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) con
     params.push_back(Parameter(p++, "ps", DistParams(m_ps, 10), DistParams(m_ps, 10), PRIOR_NORMAL, TRANSFORM_LOG()));
     params.push_back(Parameter(p++, "ve", DistParams(m_ve, 10), DistParams(m_ve, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     params.push_back(Parameter(p++, "vp", DistParams(m_vp, 10), DistParams(m_vp, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
-    
+
     // Standard DCE parameters
     DCEFwdModel::GetParameterDefaults(params);
 }
@@ -106,7 +106,7 @@ ColumnVector DCE_2CXM_FwdModel::compute_concentration(const double delay, const 
         current_concentration = fp * convolution_result;
     }
     else if(m_conv_method == "iterative") {
-        // Compute convolution using iterative technique 
+        // Compute convolution using iterative technique
         // We use the method in the appendix of this paper to compute the convolution
         //Some properties of convolution. X represents convolution operation
         //f X g = g X f
@@ -164,12 +164,12 @@ ColumnVector DCE_2CXM_FwdModel::compute_convolution_trap(const double delay, con
     for (int t_idx = 0; t_idx < data.Nrows(); t_idx++)
     {
         double t = t_idx * m_dt - delay;
-        if (t <= 0) 
+        if (t <= 0)
         {
             // AIF strictly zero at t <= 0
             convolution_result(t_idx + 1) = 0;
         }
-        else 
+        else
         {
             // Convolution integral: INTEGRAL 0->t {AIF(t) * bracket_term(t-tau)} d tau
             double I = 0;
@@ -182,7 +182,7 @@ ColumnVector DCE_2CXM_FwdModel::compute_convolution_trap(const double delay, con
                     I += AIF(tau) * bracket_term;
                 }
             }
-            if (t_idx >= 1) 
+            if (t_idx >= 1)
             {
                 // Last point half contribution in trapezium rule. note first point
                 // is always zero since AIF(0) = 0
@@ -204,7 +204,7 @@ ColumnVector DCE_2CXM_FwdModel::compute_convolution_iterative(const double delay
         double t = double(t_idx) * m_dt - delay;
         aif(t_idx+1) = AIF(t);
     }
-    
+
     int nhtpts = aif.Nrows();
     ColumnVector f_vector(nhtpts);
 
@@ -263,11 +263,11 @@ void DCE_2CXM_FwdModel::Evaluate(const ColumnVector &params, ColumnVector &resul
 
     // Tissue concentration results
     ColumnVector concentration_tissue = compute_concentration(delay, fp, ps, vp, ve);
-    
+
     // Converts concentration back to DCE signal
     result.ReSize(data.Nrows());
     for (int i = 1; i <= data.Nrows(); i++)
-    {   
+    {
         result(i) = SignalFromConcentration(concentration_tissue(i), t10, sig0);
     }
 

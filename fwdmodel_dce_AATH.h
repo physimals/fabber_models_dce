@@ -1,7 +1,7 @@
 /**
  * fwdmodel_dce_AATH.h
  *
- * An Adiabatic Approximation to the Tissue Homogeneity Model for Water Exchange in the 
+ * An Adiabatic Approximation to the Tissue Homogeneity Model for Water Exchange in the
  * Brain: I. Theoretical Derivation
  *
  * https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.25991
@@ -40,7 +40,7 @@ public:
     void Initialize(FabberRunData &rundata);
     void GetParameterDefaults(std::vector<Parameter> &params) const;
     void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
-    
+
 private:
     // Initial values of model parameters - always inferred
     double m_ve, m_vp;
