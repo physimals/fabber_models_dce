@@ -52,31 +52,47 @@ The two-compartment exchange model [3]_
 
 This model is selected using ``--model=dce_2CXM``. Options are:
 
---fp            Initial and prior flow in min-1 (default 0.3)
---ps            Initial and prior permeability surface area product in min-1 (default 0.3)
---vp            Initial and prior plasma volume in decimal between zero and one (default 0.3)
---ve            Initial and prior extracellular space volume in decimal between zero and one (default 0.3)
+--fp            Initial and prior flow in min-1 (default 0.5)
+--ps            Initial and prior permeability surface area product in min-1 (default 0.05)
+--vp            Initial and prior plasma volume in decimal between zero and one (default 0.05)
+--ve            Initial and prior extracellular space volume in decimal between zero and one (default 0.5)
 --conv-method   Method to compute convolution, trapezium, matrix or iterative. Default is iterative
+
+The default prior value for :math:`F_p` corresponds to a value of 50 ml/100g/min in conventional units. 
+However this prior is relatively uninformative with a default variance of 100 min-1.
+
+The prior for PS is based on the 'permeability limited' regime where :math:`PS \approx K_{trans}`, however the
+default prior variance of 10 min-1 allows the parameter to increase in leaky vasculature (the 'flow limited'
+case).
+
+The prior for :math:`V_p` is based on common values in the range 1-10%. This parameter is constrained to lie between
+zero and 1. Similarly :math:`V_e` typical ranges are 10-60%.
+
+See [8]_ for an overview of these parameters.
 
 The Compartmental Tissue Uptake model [4]_
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This model is selected using ``--model=dce_CTU``. Options are:
 
---fp            Initial and prior flow in min-1 (default 0.3)
---ps            Initial and prior permeability surface area product in min-1 (default 0.3)
---vp            Initial and prior plasma volume in decimal between zero and one (default 0.3)
+--fp            Initial and prior flow in min-1 (default 0.5)
+--ps            Initial and prior permeability surface area product in min-1 (default 0.05)
+--vp            Initial and prior plasma volume in decimal between zero and one (default 0.05)
 --conv-method   Method to compute convolution, trapezium, matrix or iterative. Default is trapezium
+
+Priors are as for the 2CXM model
 
 The Adiabatic Approximation to the Tissue Homogeniety model [5]_
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This model is selected using ``--model=dce_AATH``. Options are:
 
---fp            Initial and prior flow in min-1 (default 0.3)
---ps            Initial and prior permeability surface area product in min-1 (default 0.3)
---vp            Initial and prior plasma volume in decimal between zero and one (default 0.3)
---ve            Initial and prior extracellular space volume in decimal between zero and one (default 0.3)
+--fp            Initial and prior flow in min-1 (default 0.5)
+--ps            Initial and prior permeability surface area product in min-1 (default 0.05)
+--vp            Initial and prior plasma volume in decimal between zero and one (default 0.05)
+--ve            Initial and prior extracellular space volume in decimal between zero and one (default 0.5)
+
+Priors are as for the 2CXM model
 
 Generic options common to all models
 ------------------------------------
@@ -179,3 +195,5 @@ References
 .. [6] `Matthew R Orton et al 2008 Phys. Med. Biol. 53 1225 <https://iopscience.iop.org/article/10.1088/0031-9155/53/5/005/meta>`_
 
 .. [7] https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.21066
+
+.. [8] http://www.paul-tofts-phd.org.uk/CV/reprints/A20_dce_mri_chapter_2013.pdf
