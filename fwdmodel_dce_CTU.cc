@@ -36,9 +36,9 @@ std::string DCE_CTU_FwdModel::GetDescription() const
 }
 
 static OptionSpec OPTIONS[] = {
-    { "fp", OPT_FLOAT, "Prior value for flow in min-1", OPT_NONREQ, "0.3" },
-    { "ps", OPT_FLOAT, "Prior value for permeability surface area product in min-1", OPT_NONREQ, "0.3" },
-    { "vp", OPT_FLOAT, "Prior value for plasma volume in decimal between zero and one", OPT_NONREQ, "0.3" },
+    { "fp", OPT_FLOAT, "Flow in min-1", OPT_NONREQ, "0.5" },
+    { "ps", OPT_FLOAT, "Permeability surface area product in min-1", OPT_NONREQ, "0.05" },
+    { "vp", OPT_FLOAT, "Plasma volume in decimal between zero and one", OPT_NONREQ, "0.05" },
     { "conv-method", OPT_STR, "Method to compute convolution, trapezium, matrix or iterative.", OPT_REQ, "trapezium" },
     { "" },
 };
@@ -58,7 +58,7 @@ void DCE_CTU_FwdModel::Initialize(FabberRunData &rundata)
     
     // Initial values of the parameters
     m_fp = rundata.GetDoubleDefault("fp", 0.5);
-    m_ps = rundata.GetDoubleDefault("ps", 0.5);
+    m_ps = rundata.GetDoubleDefault("ps", 0.05);
     m_vp = rundata.GetDoubleDefault("vp", 0.05);
 
     // Other model options
@@ -71,9 +71,9 @@ void DCE_CTU_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) cons
 
     // Basic model parameters
     int p=0;
-    params.push_back(Parameter(p++, "fp", DistParams(m_fp, 1e5), DistParams(m_fp, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
-    params.push_back(Parameter(p++, "ps", DistParams(m_ps, 1e5), DistParams(m_ps, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
-    params.push_back(Parameter(p++, "vp", DistParams(m_vp, 1), DistParams(m_vp, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
+    params.push_back(Parameter(p++, "fp", DistParams(m_fp, 100), DistParams(m_fp, 10), PRIOR_NORMAL, TRANSFORM_LOG()));
+    params.push_back(Parameter(p++, "ps", DistParams(m_ps, 10), DistParams(m_ps, 10), PRIOR_NORMAL, TRANSFORM_LOG()));
+    params.push_back(Parameter(p++, "vp", DistParams(m_vp, 10), DistParams(m_vp, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     
     // Standard DCE parameters
     DCEFwdModel::GetParameterDefaults(params);

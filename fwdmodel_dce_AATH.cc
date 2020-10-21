@@ -36,10 +36,10 @@ std::string DCE_AATH_FwdModel::GetDescription() const
 }
 
 static OptionSpec OPTIONS[] = {
-    { "fp", OPT_FLOAT, "Flow in min-1", OPT_NONREQ, "0.3" },
-    { "ps", OPT_FLOAT, "Permeability surface area product in min-1", OPT_NONREQ, "0.3" },
-    { "vp", OPT_FLOAT, "Plasma volume in decimal between zero and one", OPT_NONREQ, "0.3" },
-    { "ve", OPT_FLOAT, "Extracellular space volume in decimal between zero and one", OPT_NONREQ, "0.3" },
+    { "fp", OPT_FLOAT, "Flow in min-1", OPT_NONREQ, "0.5" },
+    { "ps", OPT_FLOAT, "Permeability surface area product in min-1", OPT_NONREQ, "0.05" },
+    { "ve", OPT_FLOAT, "Extracellular space volume in decimal between zero and one", OPT_NONREQ, "0.5" },
+    { "vp", OPT_FLOAT, "Plasma volume in decimal between zero and one", OPT_NONREQ, "0.05" },
     { "infer-fp", OPT_BOOL, "Infer Fp. We do not recommend inferring both fp and ps in this model", OPT_NONREQ, "" },
     { "infer-ps", OPT_BOOL, "Infer PS. We do not recommend inferring both fp and ps in this model", OPT_NONREQ, "" },
     { "" },
@@ -60,7 +60,7 @@ void DCE_AATH_FwdModel::Initialize(FabberRunData &rundata)
     
     // Initial values of main parameters
     m_fp = rundata.GetDoubleDefault("fp", 0.5);
-    m_ps = rundata.GetDoubleDefault("ps", 0.5);
+    m_ps = rundata.GetDoubleDefault("ps", 0.05);
     m_ve = rundata.GetDoubleDefault("ve", 0.5);
     m_vp = rundata.GetDoubleDefault("vp", 0.05);
 
@@ -78,13 +78,13 @@ void DCE_AATH_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) con
     // Basic model parameters
     int p=0;
     if (m_infer_fp) {
-        params.push_back(Parameter(p++, "fp", DistParams(m_fp, 1e5), DistParams(m_fp, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
+        params.push_back(Parameter(p++, "fp", DistParams(m_fp, 100), DistParams(m_fp, 10), PRIOR_NORMAL, TRANSFORM_LOG()));
     }
     if (m_infer_ps) {
-        params.push_back(Parameter(p++, "ps", DistParams(m_ps, 1e5), DistParams(m_ps, 100), PRIOR_NORMAL, TRANSFORM_LOG()));
+        params.push_back(Parameter(p++, "ps", DistParams(m_ps, 10), DistParams(m_ps, 10), PRIOR_NORMAL, TRANSFORM_LOG()));
     }
-    params.push_back(Parameter(p++, "ve", DistParams(m_ve, 1e5), DistParams(m_ve, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
-    params.push_back(Parameter(p++, "vp", DistParams(m_vp, 1), DistParams(m_vp, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
+    params.push_back(Parameter(p++, "ve", DistParams(m_ve, 10), DistParams(m_ve, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
+    params.push_back(Parameter(p++, "vp", DistParams(m_vp, 10), DistParams(m_vp, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
     
     // Standard DCE parameters
     DCEFwdModel::GetParameterDefaults(params);
