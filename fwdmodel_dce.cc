@@ -11,7 +11,10 @@
 #include <iostream>
 #include <stdexcept>
 
+using namespace std;
 using namespace NEWMAT;
+using MISCMATHS::read_ascii_matrix;
+using MISCMATHS::max;
 
 static OptionSpec OPTIONS[] = {
     { "delt", OPT_FLOAT, "Time resolution between volumes, in minutes", OPT_REQ, "" },

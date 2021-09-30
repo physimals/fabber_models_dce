@@ -26,6 +26,7 @@
 #include <stdexcept>
 #include <math.h>
 
+using namespace std;
 using namespace NEWMAT;
 
 FactoryRegistration<FwdModelFactory, DCE_CTU_FwdModel> DCE_CTU_FwdModel::registration("dce_CTU");

@@ -26,6 +26,7 @@
 #include <iostream>
 #include <stdexcept>
 
+using namespace std;
 using namespace NEWMAT;
 
 FactoryRegistration<FwdModelFactory, DCE_AATH_FwdModel> DCE_AATH_FwdModel::registration("dce_AATH");

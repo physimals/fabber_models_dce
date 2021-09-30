@@ -23,6 +23,7 @@
 #include <iostream>
 #include <stdexcept>
 
+using namespace std;
 using namespace NEWMAT;
 
 FactoryRegistration<FwdModelFactory, DCEStdToftsFwdModel> DCEStdToftsFwdModel::registration("dce_tofts");

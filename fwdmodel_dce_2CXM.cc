@@ -25,6 +25,7 @@
 #include <iostream>
 #include <stdexcept>
 
+using namespace std;
 using namespace NEWMAT;
 
 FactoryRegistration<FwdModelFactory, DCE_2CXM_FwdModel> DCE_2CXM_FwdModel::registration("dce_2CXM");
