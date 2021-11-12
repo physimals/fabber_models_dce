@@ -30,5 +30,5 @@ libfsl-fabbermodels_dce.so : ${OBJS}
 	$(CXX) $(CXXFLAGS) -shared -o $@ $^ ${LDFLAGS}
 
 # fabber built from the FSL fabbercore library including the models specifieid in this project
-fabber_dce : fabber_client.o libfsl-fabbermodels_dce.so
+fabber_dce : fabber_client.o | libfsl-fabbermodels_dce.so
 	${CXX} ${CXXFLAGS} -o $@ $< -lfsl-fabbermodels_dce ${LDFLAGS}
