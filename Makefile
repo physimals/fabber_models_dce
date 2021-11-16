@@ -18,10 +18,10 @@ else
 	MATLIB := -lopenblas
   endif
 
-  USRINCFLAGS = -I${INC_NEWMAT} -I${INC_PROB} -I${INC_CPROB} \
-                -I${INC_BOOST} -I.. -I${FSLDIR}/extras/include/armawrap
-  USRLDFLAGS  = -L${LIB_NEWMAT} -L${LIB_PROB} -L../fabber_core \
-                -lnewimage -lmiscmaths -lutils -lprob ${MATLIB} \
+  USRINCFLAGS = -I${INC_NEWMAT} -I${INC_CPROB} -I${INC_BOOST} \
+                -I.. -I${FSLDIR}/extras/include/armawrap
+  USRLDFLAGS  = -L${LIB_NEWMAT} -L${LIB_CPROB} -L../fabber_core  \
+                -lnewimage -lmiscmaths -lutils -lcprob ${MATLIB} \
                 -lNewNifti -lznz -lz -ldl
 endif
 
