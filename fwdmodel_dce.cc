@@ -6,12 +6,15 @@
 #include <miscmaths/miscprob.h>
 #include <newimage/newimageall.h>
 
-#include <newmatio.h>
+#include "armawrap/newmat.h"
 
 #include <iostream>
 #include <stdexcept>
 
+using namespace std;
 using namespace NEWMAT;
+using MISCMATHS::read_ascii_matrix;
+using MISCMATHS::max;
 
 static OptionSpec OPTIONS[] = {
     { "delt", OPT_FLOAT, "Time resolution between volumes, in minutes", OPT_REQ, "" },
@@ -209,15 +212,15 @@ double DCEFwdModel::OrtonF(double t, double a) const
 double DCEFwdModel::OrtonAIF(double t) const
 {
     double tb = 2*3.14159265 / m_mub;
-    if (t <= 0) 
+    if (t <= 0)
     {
         return 0;
     }
-    else if ( t <= tb) 
+    else if ( t <= tb)
     {
         return m_ab * (1-cos(m_mub*t)) + m_ab*m_ag*OrtonF(t, m_mug);
     }
-    else 
+    else
     {
         return m_ab*m_ag*OrtonF(tb, m_mug)*exp(-m_mug*(t-tb));
     }
@@ -229,11 +232,11 @@ double DCEFwdModel::ParkerAIF(double t) const
     double A1 = 0.809;  // mmol * min
     double T1 = 0.17046;  // min
     double sigma1 = 0.0563;  // min
-    
+
     double A2 = 0.330; // mmol * min
     double T2 = 0.365;  // min
     double sigma2 = 0.132; // min
-    
+
     double alpha = 1.050; // mmol
     double beta = 0.1685; // min-1
     double s = 38.078; // min-1
@@ -252,21 +255,21 @@ double DCEFwdModel::ParkerAIF(double t) const
 
 double DCEFwdModel::AIF(double t) const
 {
-    if (t <= 0) 
+    if (t <= 0)
     {
         return 0;
     }
-    else if (m_aif_type == "orton") 
+    else if (m_aif_type == "orton")
     {
         return OrtonAIF(t);
     }
-    else if (m_aif_type == "parker") 
+    else if (m_aif_type == "parker")
     {
         return ParkerAIF(t);
     }
-    else 
+    else
     {
-        // Linearly interpolate provided AIF. Assume AIF is 
+        // Linearly interpolate provided AIF. Assume AIF is
         // constant beyond the last point
         double t_idx = t / m_dt;
         int t_idx_0 = int(floor(t_idx));
@@ -275,9 +278,9 @@ double DCEFwdModel::AIF(double t) const
         {
             return t_idx_frac*m_aif(t_idx_0+2) + (1-t_idx_frac)*m_aif(t_idx_0+1);
         }
-        else 
+        else
         {
             return m_aif(m_aif.Nrows());
         }
-    }   
+    }
 }

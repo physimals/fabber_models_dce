@@ -17,7 +17,7 @@
 
 #include <fabber_core/fwdmodel.h>
 
-#include <newmat.h>
+#include "armawrap/newmat.h"
 
 #include <string>
 #include <vector>
@@ -39,7 +39,7 @@ public:
     void Initialize(FabberRunData &rundata);
     void GetParameterDefaults(std::vector<Parameter> &params) const;
     void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
-    
+
 private:
     // Initial values of model parameters - always inferred
     double m_fp, m_ps, m_ve, m_vp;
@@ -51,7 +51,7 @@ private:
     NEWMAT::ColumnVector compute_convolution_matrix(const double delay, const double T, const double T_plus, const double T_minus) const;
     NEWMAT::ColumnVector compute_convolution_iterative(const double delay, const double T_term) const;
     NEWMAT::ColumnVector compute_convolution_trap(const double delay, const double T, const double T_plus, const double T_minus) const;
-    
+
     /** Auto-register with forward model factory. */
     static FactoryRegistration<FwdModelFactory, DCE_2CXM_FwdModel> registration;
 };

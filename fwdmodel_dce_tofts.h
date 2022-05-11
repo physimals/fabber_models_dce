@@ -1,12 +1,12 @@
 /**
- * fwdmodel_dce_tofts.h 
+ * fwdmodel_dce_tofts.h
  *
  * Standard Tofts model for DCE analysis
  *
  * @author Martin Craig IBME Oxford
  *
  *
- * Copyright (C) 2018 University of Oxford  
+ * Copyright (C) 2018 University of Oxford
  */
 
 /*  CCOPYRIGHT */
@@ -16,7 +16,7 @@
 
 #include <fabber_core/fwdmodel.h>
 
-#include <newmat.h>
+#include "armawrap/newmat.h"
 
 #include <string>
 #include <vector>

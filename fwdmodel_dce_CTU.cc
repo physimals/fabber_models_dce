@@ -7,7 +7,7 @@
  *
  * Moss Zhao - IBME, Oxford
  *
- * Copyright (C) 2018 University of Oxford  
+ * Copyright (C) 2018 University of Oxford
  */
 
 /*  CCOPYRIGHT */
@@ -20,12 +20,13 @@
 #include <miscmaths/miscprob.h>
 #include <newimage/newimageall.h>
 
-#include <newmatio.h>
+#include "armawrap/newmat.h"
 
 #include <iostream>
 #include <stdexcept>
 #include <math.h>
 
+using namespace std;
 using namespace NEWMAT;
 
 FactoryRegistration<FwdModelFactory, DCE_CTU_FwdModel> DCE_CTU_FwdModel::registration("dce_CTU");
@@ -55,7 +56,7 @@ void DCE_CTU_FwdModel::GetOptions(vector<OptionSpec> &opts) const
 void DCE_CTU_FwdModel::Initialize(FabberRunData &rundata)
 {
     DCEFwdModel::Initialize(rundata);
-    
+
     // Initial values of the parameters
     m_fp = rundata.GetDoubleDefault("fp", 0.5);
     m_ps = rundata.GetDoubleDefault("ps", 0.05);
@@ -74,7 +75,7 @@ void DCE_CTU_FwdModel::GetParameterDefaults(std::vector<Parameter> &params) cons
     params.push_back(Parameter(p++, "fp", DistParams(m_fp, 100), DistParams(m_fp, 10), PRIOR_NORMAL, TRANSFORM_LOG()));
     params.push_back(Parameter(p++, "ps", DistParams(m_ps, 10), DistParams(m_ps, 10), PRIOR_NORMAL, TRANSFORM_LOG()));
     params.push_back(Parameter(p++, "vp", DistParams(m_vp, 10), DistParams(m_vp, 1), PRIOR_NORMAL, TRANSFORM_FRACTIONAL()));
-    
+
     // Standard DCE parameters
     DCEFwdModel::GetParameterDefaults(params);
 }
@@ -112,7 +113,7 @@ ColumnVector DCE_CTU_FwdModel::compute_concentration(double delay, double fp, do
             current_concentration(t_index + 1) = 0.0; // Initialize the concentration result vector. It seems that C++ likes this. :O
         }
 
-        // Do convolution. 
+        // Do convolution.
         current_concentration = m_dt * compute_convolution_matrix(delay, bracket_term);
     }
     else if(m_conv_method == "trapezium") {
@@ -121,7 +122,7 @@ ColumnVector DCE_CTU_FwdModel::compute_concentration(double delay, double fp, do
     }
     else if(m_conv_method == "iterative") {
         // Need to work on this (you need to re-write the equation)
-        // Compute convolution using iterative technique 
+        // Compute convolution using iterative technique
         // We use the method in the appendix of this paper to compute the convolution
         //Some properties of convolution. X represents convolution operation
         //f X g = g X f
@@ -144,12 +145,12 @@ ColumnVector DCE_CTU_FwdModel::compute_convolution_trap(const double delay, cons
     for (int t_idx = 0; t_idx < data.Nrows(); t_idx++)
     {
         double t = t_idx * m_dt - delay;
-        if (t <= 0) 
+        if (t <= 0)
         {
             // AIF strictly zero at t <= 0
             convolution_result(t_idx + 1) = 0;
         }
-        else 
+        else
         {
             // Convolution integral: INTEGRAL 0->t {AIF(t) * bracket_term(t-tau)} d tau
             double I = 0;
@@ -162,7 +163,7 @@ ColumnVector DCE_CTU_FwdModel::compute_convolution_trap(const double delay, cons
                     I += AIF(tau) * bracket_term;
                 }
             }
-            if (t_idx >= 1) 
+            if (t_idx >= 1)
             {
                 // Last point half contribution in trapezium rule. note first point
                 // is always zero since AIF(0) = 0
@@ -210,7 +211,7 @@ ColumnVector DCE_CTU_FwdModel::compute_convolution_iterative(const double delay,
         double t = double(t_idx) * m_dt - delay;
         aif(t_idx+1) = AIF(t);
     }
-    
+
     int nhtpts = aif.Nrows();
     ColumnVector f_vector(nhtpts);
 
@@ -271,7 +272,7 @@ void DCE_CTU_FwdModel::Evaluate(const ColumnVector &params, ColumnVector &result
     // Converts concentration back to MRI signal
     result.ReSize(data.Nrows());
     for (int i = 1; i <= data.Nrows(); i++)
-    {   
+    {
         result(i) = SignalFromConcentration(concentration_tissue(i), t10, sig0);
     }
 

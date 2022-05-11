@@ -7,7 +7,7 @@
  *
  * Moss Zhao - IBME, Oxford
  *
- * Copyright (C) 2018 University of Oxford  
+ * Copyright (C) 2018 University of Oxford
  */
 
 /*  CCOPYRIGHT */
@@ -17,7 +17,7 @@
 
 #include <fabber_core/fwdmodel.h>
 
-#include <newmat.h>
+#include "armawrap/newmat.h"
 
 #include <string>
 #include <vector>
@@ -39,7 +39,7 @@ public:
     void Initialize(FabberRunData &rundata);
     void GetParameterDefaults(std::vector<Parameter> &params) const;
     void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
-    
+
 private:
     // Initial values of model parameters - always inferred
     double m_fp, m_ps, m_vp;
